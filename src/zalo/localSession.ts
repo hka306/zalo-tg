@@ -149,6 +149,22 @@ function logFail(step: string, err?: unknown): null {
 }
 
 /**
+ * Copy file mà Zalo PC có thể đang mở. Đọc thường bị EBUSY lúc đó, nên thử bản chụp VSS (cần quyền Administrator).
+ */
+export function copyLockedFile(src: string, dst: string): void {
+  try {
+    writeFileSync(dst, readFileSync(src));
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EBUSY') throw err;
+    try {
+      execFileSync('esentutl', ['/y', src, '/d', dst, '/vss'], { stdio: 'ignore', timeout: 60_000 });
+    } catch {
+      throw new Error('file đang bị Zalo PC khoá, copy bằng VSS cũng lỗi (cần chạy bot với quyền Administrator)');
+    }
+  }
+}
+
+/**
  * Lấy phiên Zalo PC đang đăng nhập trên máy, hoặc `null` nếu không khả dụng
  * (không phải Windows, Zalo PC chưa đăng nhập, hoặc không giải mã được).
  */
@@ -165,10 +181,9 @@ export async function loadLocalZaloSession(): Promise<LocalZaloSession | null> {
     if (!existsSync(srcCookies)) return logFail('không thấy file Cookies của Zalo PC');
     const tmpDir = mkdtempSync(join(os.tmpdir(), 'ztg-ck-'));
     const tmpCookies = join(tmpDir, 'Cookies');
-    // copyFileSync bị EBUSY khi Zalo PC đang giữ file; readFileSync mở file với quyền chia sẻ nên đọc được
-    writeFileSync(tmpCookies, readFileSync(srcCookies));
+    copyLockedFile(srcCookies, tmpCookies);
     for (const ext of ['-wal', '-shm']) {
-      if (existsSync(srcCookies + ext)) writeFileSync(tmpCookies + ext, readFileSync(srcCookies + ext));
+      if (existsSync(srcCookies + ext)) copyLockedFile(srcCookies + ext, tmpCookies + ext);
     }
 
     step = 'giải khoá Local State (DPAPI)';
