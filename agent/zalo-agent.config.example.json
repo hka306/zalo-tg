@@ -1,0 +1,10 @@
+{
+  "scpTarget": "user@your-vps:/opt/zalo-tg/credentials.json",
+  "sshKey": "C:\\Users\\YOU\\.ssh\\id_ed25519",
+  "scpPort": 22,
+  "intervalMinutes": 60,
+  "telegram": {
+    "botToken": "123456:ABC-your-bot-token",
+    "chatId": -1001234567890
+  }
+}

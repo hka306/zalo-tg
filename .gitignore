@@ -29,3 +29,7 @@ npm-debug.log*
 .idea/
 logs/
 app-session.json
+
+# Zalo session agent (máy Windows) — cấu hình & state, KHÔNG commit
+agent/zalo-agent.config.json
+agent/zalo-agent-state.json
