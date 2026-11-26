@@ -14,7 +14,7 @@ Repo: `hka306/zalo-tg`.
 - mỗi DM hoặc nhóm Zalo được ánh xạ vào một Telegram topic riêng;
 - tin nhắn, ảnh, file, sticker, GIF, voice, poll, album, phản ứng (reaction) và sự kiện nhóm từ Zalo được chuyển vào đúng topic;
 - khi một tin Zalo bị **thu hồi**, bridge **giữ nguyên nội dung đã chuyển** và chỉ reply một dòng báo `🗑 Tin nhắn này đã bị thu hồi trên Zalo`;
-- đăng nhập **không dùng QR**: dùng lại phiên Zalo PC đã đăng nhập trên máy (xem [Đăng nhập](#đăng-nhập-không-qr) và [Agent đồng bộ phiên](#agent-đồng-bộ-phiên-máy-windows--vps)).
+- đăng nhập **không dùng QR**: dùng lại phiên Zalo PC đã đăng nhập trên máy (xem [Đăng nhập](#đăng-nhập-không-qr)).
 
 Bridge dùng **một** tài khoản Zalo. Trạng thái Zalo API, credentials, topic mapping và cache đều là global singleton.
 
@@ -66,54 +66,6 @@ Phiên được lưu trong `credentials.json` (`{imei, cookie, userAgent}`, **po
 
 > Tính năng **xem đầy đủ thành viên nhóm ẩn danh sách** vẫn hoạt động: sau mỗi lần đăng nhập, bridge tự sinh `app-session.json` (khoá `zpw_enk` + cookie từ chính phiên đang đăng nhập) để gọi PC App API — không cần QR. Nếu không sẵn sàng, bridge tự fallback sang web API (nhóm ẩn có thể chỉ thấy một phần).
 
-## Tuỳ chọn: chạy trên VPS (agent đồng bộ phiên)
-
-> Chỉ cần khi bạn muốn app chạy trên **VPS/máy chủ khác** (để máy có Zalo tắt vẫn theo dõi được), thay vì chạy thẳng trên máy Zalo PC. Chạy local thì **bỏ qua cả phần này**.
-
-Thư mục `agent/` chứa agent 1 file (`zalo-session-agent.mjs`, chỉ dùng builtin của Node) chạy trên **máy Windows đang đăng nhập Zalo PC**. Mỗi lần chạy, agent kiểm tra máy có đang đăng nhập Zalo PC hay không:
-
-- **Có** → trích phiên; **chỉ khi cookie đổi** mới đẩy `credentials.json` mới sang VPS qua `scp`. Bridge trên VPS theo dõi `credentials.json`, tự đăng nhập lại và báo lên Telegram (`🔄 đã đăng nhập lại` / `⚠️ cần đăng nhập lại`) — không cần quét QR.
-- **Không** → báo `⚠️ Không có đăng nhập Zalo trên máy` lên bot Telegram (chỉ báo khi trạng thái đổi, không spam mỗi lần chạy).
-
-```
-Windows (Zalo PC)                         VPS (bridge)
-┌──────────────────────┐   scp phiên mới  ┌──────────────────────────┐
-│ zalo-session-agent   │ ───────────────▶ │ credentials.json          │
-│  (mỗi 60 phút,       │                  │   ▼ watchFile phát hiện   │
-│   chỉ gửi khi đổi)   │                  │ đăng nhập lại → Telegram  │
-└──────────────────────┘                  └──────────────────────────┘
-```
-
-**Yêu cầu agent:** Windows (cùng user với Zalo PC), Zalo PC đã đăng nhập, Node `>=22.5` (cần `node:sqlite` đọc cookie DB), OpenSSH client (`scp`), và SSH key sang VPS.
-
-**Cấu hình** — tạo `agent/zalo-agent.config.json` (xem `agent/zalo-agent.config.example.json`):
-
-```json
-{
-  "scpTarget": "user@your-vps:/opt/zalo-tg/credentials.json",
-  "sshKey": "C:\\Users\\YOU\\.ssh\\id_ed25519",
-  "scpPort": 22,
-  "intervalMinutes": 60,
-  "telegram": { "botToken": "123456:...", "chatId": "-1001234567890" }
-}
-```
-
-- `scpTarget`: `user@host:<đường dẫn credentials.json của bridge>` (phải trùng `ZALO_CREDENTIALS_PATH` trên VPS).
-- `telegram` (tuỳ chọn): để agent báo khi máy mất phiên Zalo; dùng cùng bot token + chat id với bridge.
-- Có thể thay bằng biến môi trường: `ZALO_AGENT_SCP_TARGET`, `ZALO_AGENT_SSH_KEY`, `ZALO_AGENT_SCP_PORT`, `ZALO_AGENT_TG_BOT_TOKEN`, `ZALO_AGENT_TG_CHAT_ID`.
-
-**Chạy agent:**
-
-```powershell
-node zalo-session-agent.mjs --selftest   # tự kiểm tra logic so cookie
-node zalo-session-agent.mjs --once       # trích + đẩy 1 lần (nếu cookie đổi)
-node zalo-session-agent.mjs              # chạy ngầm, lặp mỗi intervalMinutes phút
-```
-
-Bền hơn: tạo Windows Task Scheduler chạy `node C:\path\agent\zalo-session-agent.mjs --once` mỗi 60 phút (chạy trong phiên user có Zalo PC).
-
-> `credentials.json` = toàn quyền tài khoản Zalo. Agent đẩy qua SSH (mã hoá), không mở cổng mới trên VPS. Giữ SSH key và file cấu hình an toàn. `credentials.json`, `app-session.json`, `agent/zalo-agent.config.json`, `agent/zalo-agent-state.json` đều nằm trong `.gitignore` — không commit.
-
 ## Biến môi trường
 
 | Biến | Mặc định / ví dụ | Công dụng |
@@ -121,7 +73,7 @@ Bền hơn: tạo Windows Task Scheduler chạy `node C:\path\agent\zalo-session
 | `TG_TOKEN` | bắt buộc | Telegram bot token từ @BotFather. |
 | `TG_GROUP_ID` | bắt buộc, ví dụ `-1001234567890` | ID Telegram supergroup/forum (số âm; bot là admin; bật Topics). |
 | `DATA_DIR` | `./data` | Thư mục lưu topic map, message map, user cache, poll. |
-| `ZALO_CREDENTIALS_PATH` | `./credentials.json` | File phiên Zalo. Phải trùng `scpTarget` của agent. Không commit. |
+| `ZALO_CREDENTIALS_PATH` | `./credentials.json` | File phiên Zalo. Không commit. |
 | `ZALO_PC_DATA_DIR` | tự dò `%APPDATA%\ZaloData` | Nơi `/loginlocal` đọc dữ liệu Zalo PC (Windows). |
 | `ZALO_SKIP_MUTED_GROUPS` | `0` | `1` bỏ qua tin từ nhóm Zalo đã mute. |
 | `ZALO_MUTE_SILENT` | `1` | `1` mirror thread đã mute thành tin Telegram silent; `0` luôn notify. |
@@ -186,13 +138,12 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 | `src/store.ts` | Topic/message mapping, cache, media buffer, reaction/poll store. |
 | `src/utils/` | media, format, privateFile, terminal, tgQueue, zaloRetry… |
 | `src/lifecycle.ts`, `src/updater.ts` | Điều phối shutdown/restart; kiểm tra cập nhật. |
-| `agent/zalo-session-agent.mjs` | Agent 1 file trên máy Windows đẩy phiên Zalo sang VPS. |
-| `tests/*.test.ts` | Unit/regression test cho store, media, format, config, agent. |
+| `tests/*.test.ts` | Unit/regression test cho store, media, format, config. |
 
 ## Ghi chú vận hành
 
 - Bot Telegram phải là admin và group phải bật forum topics.
 - Chạy `npm run check` trước khi push.
 - Chạy local: nên **đóng app Zalo PC sau khi app đã có phiên** để tránh tranh chấp kết nối (app và Zalo PC là hai client cùng loại, có thể kick nhau). App đọc phiên từ đĩa nên không cần Zalo PC mở sẵn.
-- Nếu Zalo báo duplicate/kicked session: trên máy có Zalo PC gõ `/loginlocal` để nối lại; chạy VPS thì agent tự đẩy phiên mới.
+- Nếu Zalo báo duplicate/kicked session: gõ `/loginlocal` trên máy có Zalo PC để nối lại.
 - `credentials.json` và `app-session.json` là dữ liệu nhạy cảm — không commit, giữ quyền chỉ chủ sở hữu đọc.
