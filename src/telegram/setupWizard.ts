@@ -178,7 +178,7 @@ async function finish(
     ? 'Các biến đã cập nhật:\n' + updated.map(k => `• <code>${k} = ${session.answers[k]}</code>`).join('\n')
     : 'Không có biến nào thay đổi.';
   await send(
-    `✅ <b>Đã lưu cấu hình mới!</b>\n\n${summary}\n\n⚠️ Cần khởi động lại để áp dụng — gửi <b>/restart</b>.\nDùng Docker? Nhớ cập nhật thêm biến tương ứng trong docker-compose nếu cần.`,
+    `✅ <b>Đã lưu cấu hình mới!</b>\n\n${summary}\n\n⚠️ Cần khởi động lại để áp dụng — gửi <b>/restart</b>.`,
     { parse_mode: 'HTML' },
   );
 }

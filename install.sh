@@ -391,7 +391,7 @@ configure_env() {
 
   printf '\n  %s▸ Runtime%s\n' "$CYAN" "$RESET"
   ENV_ZALO_TG_RUNNER=$(ask_env_value "ZALO_TG_RUNNER - 1 only under external supervisor, blank normally" "${ZALO_TG_RUNNER:-}" 0)
-  ENV_NODE_ENV=$(ask_env_value "NODE_ENV - blank normally, production in Docker" "${NODE_ENV:-}" 0)
+  ENV_NODE_ENV=$(ask_env_value "NODE_ENV - leave blank normally" "${NODE_ENV:-}" 0)
 
   printf '\n  %s▸ Terminal UI%s\n' "$CYAN" "$RESET"
   ENV_ZALO_TG_TUI=$(ask_env_value "ZALO_TG_TUI - 0 disable dashboard, blank = enabled" "${ZALO_TG_TUI:-}" 0)
