@@ -66,6 +66,40 @@ Phiên được lưu trong `credentials.json` (`{imei, cookie, userAgent}`, **po
 
 > Tính năng **xem đầy đủ thành viên nhóm ẩn danh sách** vẫn hoạt động: sau mỗi lần đăng nhập, bridge tự sinh `app-session.json` (khoá `zpw_enk` + cookie từ chính phiên đang đăng nhập) để gọi PC App API — không cần QR. Nếu không sẵn sàng, bridge tự fallback sang web API (nhóm ẩn có thể chỉ thấy một phần).
 
+## Cách sử dụng
+
+Luồng dùng từ đầu đến cuối:
+
+**1. Chuẩn bị Telegram (làm một lần)**
+
+- Tạo bot với [@BotFather](https://t.me/BotFather) → lấy `TG_TOKEN`.
+- Tạo một **supergroup**, vào *Manage group → Topics* để **bật forum topics**.
+- Thêm bot vào group và đặt làm **admin**.
+- Lấy `TG_GROUP_ID` (số âm, dạng `-100…`): tạm thêm `@getidsbot` / `@RawDataBot` vào group để đọc ID, hoặc xem trong log khi app khởi động.
+
+**2. Chạy app trên máy có Zalo PC**
+
+- Đảm bảo đang **đăng nhập Zalo PC** trên máy Windows.
+- Điền `TG_TOKEN` + `TG_GROUP_ID` vào `.env`, rồi `npm ci && npm run build && npm start` (chi tiết ở [Cài đặt & chạy](#cài-đặt--chạy)).
+- App tự đọc phiên Zalo PC và bắt đầu theo dõi — **không quét QR**.
+
+**3. Bắt đầu theo dõi một hội thoại**
+
+- Trong group Telegram, gõ `/search Tên hoặc số điện thoại` để tìm bạn bè / nhóm Zalo, chọn kết quả → bridge tạo một **topic** riêng cho hội thoại đó.
+- Từ đó, mọi tin nhắn mới của hội thoại (DM hoặc nhóm) sẽ chảy vào đúng topic.
+- Với nhóm: gõ `/history` trong topic để nạp lịch sử gần đây; `/group_infoall` để xem đầy đủ thành viên (kể cả nhóm ẩn danh sách).
+
+**4. Hằng ngày**
+
+- Tin nhắn, ảnh, file, sticker, GIF, voice, poll, reaction… hiện trong topic tương ứng.
+- Tin bị **thu hồi** trên Zalo vẫn giữ nguyên nội dung, chỉ thêm một dòng `🗑 Tin nhắn này đã bị thu hồi trên Zalo`.
+- Kiểm tra trạng thái bằng `/status`. Xem toàn bộ lệnh ở [Lệnh Telegram](#lệnh-telegram).
+
+**5. Khi mất kết nối**
+
+- App tự đọc lại phiên Zalo PC để nối lại. Nếu Zalo báo trùng/kick phiên, gõ `/loginlocal` trên máy có Zalo PC.
+- Nên **đóng app Zalo PC sau khi bridge đã có phiên** để tránh hai client tranh chấp kết nối (xem [Ghi chú vận hành](#ghi-chú-vận-hành)).
+
 ## Biến môi trường
 
 | Biến | Mặc định / ví dụ | Công dụng |
