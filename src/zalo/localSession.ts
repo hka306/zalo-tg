@@ -10,7 +10,7 @@
  * bằng DPAPI theo user). Mọi lỗi đều trả `null` để caller tự xử lý (ví dụ báo
  * Telegram là chưa có đăng nhập Zalo).
  */
-import { readdirSync, readFileSync, statSync, copyFileSync, existsSync, mkdtempSync } from 'node:fs';
+import { readdirSync, readFileSync, statSync, writeFileSync, existsSync, mkdtempSync } from 'node:fs';
 import { join } from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
@@ -165,9 +165,10 @@ export async function loadLocalZaloSession(): Promise<LocalZaloSession | null> {
     if (!existsSync(srcCookies)) return logFail('không thấy file Cookies của Zalo PC');
     const tmpDir = mkdtempSync(join(os.tmpdir(), 'ztg-ck-'));
     const tmpCookies = join(tmpDir, 'Cookies');
-    copyFileSync(srcCookies, tmpCookies); // tránh khoá file khi Zalo đang chạy
+    // copyFileSync bị EBUSY khi Zalo PC đang giữ file; readFileSync mở file với quyền chia sẻ nên đọc được
+    writeFileSync(tmpCookies, readFileSync(srcCookies));
     for (const ext of ['-wal', '-shm']) {
-      if (existsSync(srcCookies + ext)) copyFileSync(srcCookies + ext, tmpCookies + ext);
+      if (existsSync(srcCookies + ext)) writeFileSync(tmpCookies + ext, readFileSync(srcCookies + ext));
     }
 
     step = 'giải khoá Local State (DPAPI)';

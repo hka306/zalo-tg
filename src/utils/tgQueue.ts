@@ -61,7 +61,9 @@ async function runWithTransientRetry(fn: () => Promise<unknown>): Promise<unknow
         throw err;
       }
       const delay = TRANSIENT_BACKOFF_MS[attempt] ?? TRANSIENT_BACKOFF_MS[TRANSIENT_BACKOFF_MS.length - 1]!;
-      console.warn(`[TGQueue] transient network error — retry #${attempt + 1} after ${delay / 1000}s`);
+      // Chỉ in mã lỗi: message có thể chứa URL kèm token bot
+      const { code, cause } = err as { code?: unknown; cause?: { code?: unknown } };
+      console.warn(`[TGQueue] transient network error (${String(code ?? cause?.code ?? 'unknown')}) — retry #${attempt + 1} after ${delay / 1000}s`);
       await new Promise(r => setTimeout(r, delay));
       attempt++;
     }
