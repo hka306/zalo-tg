@@ -201,6 +201,7 @@ async function main(): Promise<void> {
     { command: 'restart',        description: 'Khởi động lại bridge (chỉ admin)' },
     { command: 'setup',          description: 'Cấu hình biến env qua wizard (chỉ admin)' },
     { command: 'update',         description: 'Kiểm tra bản cập nhật mới' },
+    { command: 'contacts', description: 'Gửi danh bạ Zalo kèm ID vào chat riêng (chỉ admin)' },
   ]).catch(() => undefined);
 
   // ── Graceful shutdown/restart shared by signals, commands and polling ──────
