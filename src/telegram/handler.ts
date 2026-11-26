@@ -42,7 +42,8 @@ import { forceRestartZaloPc, loadBrowserZaloSession } from '../zalo/localSession
 import { writePrivateJsonFileSync } from '../utils/privateFile.js';
 import { loadAppSession, invalidateAppSession, appGetReceivedFriendRequests, appGetSentFriendRequests, appGetGroupInfo, appGetGroupMembersInfo } from '../zalo/appApi.js';
 import { resetMemberCacheLoaded } from '../zalo/handler.js';
-import { escapeHtml } from '../utils/format.js';
+import { escapeHtml, truncate } from '../utils/format.js';
+import { getMachineInfo } from '../utils/machineInfo.js';
 import { zaloApiWithRetry, isTransientNetworkError } from '../utils/zaloRetry.js';
 import { tgQueue } from '../utils/tgQueue.js';
 import { requestShutdown } from '../lifecycle.js';
@@ -815,11 +816,24 @@ export function setupTelegramHandler(
       await ctx.reply('⚠️ Zalo chưa kết nối.', msgOpts).catch(() => undefined);
       return;
     }
+    let raw: Array<{ userId: string; displayName?: string }> | undefined;
     try {
-      const friends = await currentApi.getAllFriends() as Array<{ userId: string; displayName: string }> | undefined;
-      const lines = (friends ?? [])
-        .map((f) => `${f.displayName}\t${f.userId}`)
-        .sort((a, b) => a.localeCompare(b, 'vi'));
+      raw = await currentApi.getAllFriends() as Array<{ userId: string; displayName?: string }> | undefined;
+    } catch (err) {
+      // Lỗi Zalo: chỉ lấy message ngắn, không in cả object
+      const reason = truncate(err instanceof Error ? err.message : String(err), 200);
+      console.warn('[/contacts] lấy danh bạ Zalo lỗi:', reason);
+      await ctx.reply(`❌ Không lấy được danh bạ Zalo: ${reason}`, msgOpts).catch(() => undefined);
+      return;
+    }
+    const lines = (raw ?? [])
+      .map((f) => `${f.displayName || '(chưa có tên)'}\t${f.userId}`)
+      .sort((a, b) => a.localeCompare(b, 'vi'));
+    if (lines.length === 0) {
+      await ctx.reply('📇 Zalo không trả về bạn bè nào, nên chưa có gì để gửi.', msgOpts).catch(() => undefined);
+      return;
+    }
+    try {
       // Gửi riêng để danh sách không hiện cho cả group
       await tgBot.telegram.sendDocument(
         userId,
@@ -827,12 +841,37 @@ export function setupTelegramHandler(
         { caption: `📇 ${lines.length} bạn bè Zalo (tên và ID)` },
       );
       if (isFromGroup) await ctx.reply('📇 Đã gửi danh bạ vào chat riêng của bạn.', msgOpts).catch(() => undefined);
-    } catch {
-      await ctx.reply(
-        '❌ Không lấy hoặc gửi được danh bạ. Nếu bot chưa từng nhắn riêng với bạn, hãy nhắn /start cho bot rồi thử lại.',
-        msgOpts,
-      ).catch(() => undefined);
+    } catch (err) {
+      // Lỗi Telegram có mô tả an toàn. Lỗi mạng chỉ lấy code, vì message có thể chứa URL kèm token bot
+      const tgErr  = err as { response?: { error_code?: number; description?: string }; code?: string };
+      const code   = tgErr.response?.error_code;
+      const reason = tgErr.response?.description ?? tgErr.code ?? (err instanceof Error ? err.name : 'lỗi không rõ');
+      console.warn(`[/contacts] gửi file lỗi [${code ?? '-'}]: ${reason}`);
+      const hint = code === 403
+        ? 'Bot chưa được phép nhắn riêng với bạn. Hãy mở chat riêng với bot, nhấn /start rồi gõ /contacts lại.'
+        : `Lý do: ${reason}`;
+      await ctx.reply(`❌ Không gửi được file danh bạ vào chat riêng. ${hint}`, msgOpts).catch(() => undefined);
     }
+  });
+
+  // ── /machine — tên máy, IP nội bộ và IP công cộng. Chỉ chat riêng vì IP là thông tin nhạy cảm ──
+  tgBot.command('machine', async (ctx) => {
+    if (ctx.chat.type !== 'private') {
+      await ctx.reply('🔒 Hãy gửi <code>/machine</code> trong tin nhắn riêng với bot để tránh lộ IP.', { parse_mode: 'HTML' });
+      return;
+    }
+    if (!await requireTelegramOperator(ctx, 'xem thông tin máy')) return;
+    const info = await getMachineInfo();
+    await ctx.reply(
+      '🖥 <b>Thông tin máy chạy bridge</b>\n' +
+      `Tên máy: <code>${escapeHtml(info.hostname)}</code>\n` +
+      `Người dùng Windows: <code>${escapeHtml(info.user)}</code>\n` +
+      `Hệ điều hành: ${escapeHtml(info.osName)}\n` +
+      `IP nội bộ: ${info.lanIps.length ? info.lanIps.map((ip) => `<code>${ip}</code>`).join(', ') : 'không có'}\n` +
+      `IP công cộng: ${info.publicIp ? `<code>${info.publicIp}</code>` : 'không lấy được'}\n\n` +
+      '<i>IP công cộng là IP internet thấy từ máy này. Nếu máy vẫn dùng cùng mạng lúc đăng nhập thì thường trùng IP đó. Bot không đọc được IP đăng nhập gốc mà Zalo ghi nhận.</i>',
+      { parse_mode: 'HTML' },
+    );
   });
 
   // ── /seed — show backup decryption seed ──────────────────────────────────

@@ -124,6 +124,7 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 | `/loginlocal` | Đăng nhập bằng phiên Zalo PC trên máy (Windows), không QR. Lệnh tự đóng Zalo PC, lấy phiên rồi mở lại (có thể mất nháp chưa gửi). |
 | `/search` | Tìm bạn bè / nhóm Zalo và tạo/mở topic. |
 | `/contacts` | Gửi toàn bộ bạn bè Zalo kèm ID vào chat riêng của operator, dạng file `.txt`. |
+| `/machine` | Xem tên máy, IP nội bộ và IP công cộng của máy chạy bridge. Chỉ dùng trong chat riêng, chỉ admin. |
 | `/group_info` | Xem thông tin & thành viên nhóm Zalo của topic hiện tại. |
 | `/group_infoall` | Xem đầy đủ thành viên nhóm (kể cả nhóm ẩn danh sách). |
 | `/topic` | Liệt kê, xem, xoá hoặc quản lý mapping topic. |
