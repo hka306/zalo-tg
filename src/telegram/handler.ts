@@ -38,7 +38,7 @@ import { tgBot } from './bot.js';
 import { config } from '../config.js';
 import { downloadToTemp, cleanTemp, convertStickerToPng, convertTgsToGif, convertToM4a, extractVideoThumbnail, convertWebmToGif } from '../utils/media.js';
 import { getZaloApi, resetZaloApi } from '../zalo/client.js';
-import { loadLocalZaloSession } from '../zalo/localSession.js';
+import { loadBrowserZaloSession, loadLocalZaloSession } from '../zalo/localSession.js';
 import { writePrivateJsonFileSync } from '../utils/privateFile.js';
 import { loadAppSession, invalidateAppSession, appGetReceivedFriendRequests, appGetSentFriendRequests, appGetGroupInfo, appGetGroupMembersInfo } from '../zalo/appApi.js';
 import { resetMemberCacheLoaded } from '../zalo/handler.js';
@@ -214,7 +214,7 @@ export function setupTelegramHandler(
 
     await ctx.reply('🔄 Đang lấy phiên Zalo PC trên máy...', msgOpts).catch(() => undefined);
     try {
-      const session = await loadLocalZaloSession();
+      const session = (await loadLocalZaloSession()) ?? loadBrowserZaloSession();
       if (!session) {
         await ctx.reply(
           '❌ Không tìm thấy phiên Zalo PC trên máy (chỉ hỗ trợ Windows, cùng user Windows, và Zalo PC đang đăng nhập).',

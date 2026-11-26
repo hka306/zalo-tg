@@ -8,7 +8,7 @@ import { startUpdateChecker } from './updater.js';
 import { store, userCache } from './store.js';
 import { registerShutdownHandler, requestShutdown } from './lifecycle.js';
 import { terminal } from './utils/terminal.js';
-import { loadLocalZaloSession } from './zalo/localSession.js';
+import { loadBrowserZaloSession, loadLocalZaloSession } from './zalo/localSession.js';
 import { writePrivateJsonFileSync } from './utils/privateFile.js';
 
 // ── Global safety net — prevent unhandled rejections from crashing ────────────
@@ -35,7 +35,7 @@ let _bridgeReadyAnnounced = false;
  * không lấy được để caller dùng tiếp credentials.json sẵn có (nếu còn).
  */
 async function refreshCredentialsFromLocalSession(): Promise<boolean> {
-  const session = await loadLocalZaloSession();
+  const session = await loadLocalZaloSession() ?? loadBrowserZaloSession();
   if (!session) return false;
   writePrivateJsonFileSync(config.zalo.credentialsPath, session);
   resetZaloApi();

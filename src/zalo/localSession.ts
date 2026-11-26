@@ -164,6 +164,19 @@ export function copyLockedFile(src: string, dst: string): void {
   }
 }
 
+/** Phiên từ trình duyệt đã đăng nhập chat.zalo.me, khai báo trong .env. Không cần quyền admin và không cần đóng Zalo PC. */
+export function loadBrowserZaloSession(): LocalZaloSession | null {
+  const imei = process.env.ZALO_BROWSER_IMEI?.trim();
+  const zpwSek = process.env.ZALO_BROWSER_ZPW_SEK?.trim();
+  if (!imei || !zpwSek) return null;
+  const now = new Date().toISOString();
+  return {
+    imei,
+    cookie: [{ key: 'zpw_sek', value: zpwSek, domain: 'zalo.me', path: '/', secure: true, httpOnly: true, hostOnly: false, sameSite: 'none', creation: now, lastAccessed: now }],
+    userAgent: ZALO_PC_UA,
+  };
+}
+
 /**
  * Lấy phiên Zalo PC đang đăng nhập trên máy, hoặc `null` nếu không khả dụng
  * (không phải Windows, Zalo PC chưa đăng nhập, hoặc không giải mã được).

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 
-const { decryptCookieValue, readImeiFromLevelDb, loadLocalZaloSession, copyLockedFile } = await import(
+const { decryptCookieValue, readImeiFromLevelDb, loadLocalZaloSession, copyLockedFile, loadBrowserZaloSession } = await import(
   '../src/zalo/localSession.js'
 );
 
@@ -49,4 +49,16 @@ await test('copyLockedFile copy file thường, và ném lỗi khi nguồn khôn
   copyLockedFile(path.join(dir, 'Cookies'), path.join(dir, 'copy'));
   assert.equal(readFileSync(path.join(dir, 'copy'), 'utf8'), 'abc');
   assert.throws(() => copyLockedFile(path.join(dir, 'khong-co'), path.join(dir, 'x')), { code: 'ENOENT' });
+});
+
+await test('loadBrowserZaloSession đọc phiên từ env, thiếu biến thì trả null', () => {
+  process.env.ZALO_BROWSER_IMEI = ' imei-test ';
+  process.env.ZALO_BROWSER_ZPW_SEK = 'sek-test';
+  const session = loadBrowserZaloSession();
+  assert.equal(session?.imei, 'imei-test');
+  assert.equal(session?.cookie[0]?.key, 'zpw_sek');
+  assert.equal(session?.cookie[0]?.value, 'sek-test');
+  delete process.env.ZALO_BROWSER_ZPW_SEK;
+  assert.equal(loadBrowserZaloSession(), null);
+  delete process.env.ZALO_BROWSER_IMEI;
 });
