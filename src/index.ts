@@ -130,7 +130,7 @@ async function startZalo(
       console.warn(`[Boot] Zalo disconnected: duplicate connection (code=${code}, reason=${reason})`);
       tgBot.telegram.sendMessage(
         config.telegram.groupId,
-        '⚠️ Zalo bị ngắt do đăng nhập trùng phiên (duplicate connection). Đóng bớt phiên Zalo Web/PC khác — phiên sẽ tự đồng bộ lại từ máy (agent đẩy credentials).',
+        '⚠️ Zalo bị ngắt do đăng nhập trùng phiên (duplicate connection). Đóng bớt phiên Zalo Web/PC khác. Nối lại: trên máy có Zalo PC gõ /loginlocal; chạy VPS thì agent tự đẩy phiên mới.',
         { parse_mode: 'HTML' },
       ).catch(() => undefined);
       return;
@@ -139,7 +139,7 @@ async function startZalo(
       console.warn(`[Boot] Zalo disconnected: kicked connection (code=${code}, reason=${reason})`);
       tgBot.telegram.sendMessage(
         config.telegram.groupId,
-        '⚠️ Zalo đã ngắt phiên bridge (kick connection). Phiên sẽ tự đồng bộ lại từ máy (agent đẩy credentials), hoặc gõ <b>/loginlocal</b> trên máy có Zalo PC.',
+        '⚠️ Zalo đã ngắt phiên bridge (kick connection). Nối lại: trên máy có Zalo PC gõ <b>/loginlocal</b>; chạy VPS thì agent tự đẩy phiên mới.',
         { parse_mode: 'HTML' },
       ).catch(() => undefined);
       return;
