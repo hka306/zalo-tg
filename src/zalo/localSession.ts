@@ -251,26 +251,27 @@ function taskkillZalo(flags: string[]): void {
   } catch { /* không có tiến trình nào để đóng */ }
 }
 
-/** Đường dẫn Zalo.exe lấy từ tiến trình đang chạy; không có thì dùng vị trí cài mặc định. */
-function zaloPcExePath(): string {
+/** Đường dẫn Zalo.exe của tiến trình đang chạy; null nếu Zalo PC đang tắt hoặc không đọc được. */
+function runningZaloPcPath(): string | null {
   try {
     const running = execFileSync(
       'powershell',
       ['-NoProfile', '-NonInteractive', '-Command', '(Get-Process -Name Zalo -ErrorAction SilentlyContinue | Select-Object -First 1).Path'],
       { encoding: 'utf8' },
     ).trim();
-    if (running) return running;
-  } catch { /* không đọc được tiến trình: dùng đường dẫn mặc định */ }
-  return join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Zalo', 'Zalo.exe');
+    return running || null;
+  } catch { /* không đọc được tiến trình */ }
+  return null;
 }
 
 /**
  * Đóng hẳn Zalo PC, đọc phiên khi file đã nhả khoá, rồi mở lại Zalo PC. Không cần quyền Administrator.
- * Chỉ gọi khi operator gõ `/loginlocal`: Zalo PC có thể mất nháp tin nhắn chưa gửi.
+ * Gọi từ /loginlocal hoặc khi phiên đã lưu hỏng. Chỉ mở lại Zalo PC nếu nó đang chạy trước đó.
+ * Zalo PC có thể mất nháp tin nhắn chưa gửi.
  */
 export async function forceRestartZaloPc(): Promise<LocalZaloSession | null> {
   if (process.platform !== 'win32') return null;
-  const exe = zaloPcExePath();
+  const exe = runningZaloPcPath();
   taskkillZalo([]); // đóng êm trước, cho Zalo cơ hội tự lưu
   await sleep(3_000);
   taskkillZalo(['/F', '/T']); // còn sót thì ép đóng cả cây tiến trình
@@ -278,12 +279,10 @@ export async function forceRestartZaloPc(): Promise<LocalZaloSession | null> {
   try {
     return await loadLocalZaloSession();
   } finally {
-    if (existsSync(exe)) {
+    if (exe) {
       const child = spawn(exe, [], { detached: true, stdio: 'ignore' });
       child.on('error', (err) => console.warn(`[Zalo PC] không mở lại được Zalo: ${err.message}`));
       child.unref();
-    } else {
-      console.warn(`[Zalo PC] không thấy ${exe}, hãy mở Zalo PC thủ công`);
     }
   }
 }
