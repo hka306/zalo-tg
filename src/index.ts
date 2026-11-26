@@ -10,8 +10,6 @@ import { registerShutdownHandler, requestShutdown } from './lifecycle.js';
 import { terminal } from './utils/terminal.js';
 import { loadLocalZaloSession } from './zalo/localSession.js';
 import { writePrivateJsonFileSync } from './utils/privateFile.js';
-import { readFileSync, watchFile } from 'node:fs';
-import crypto from 'node:crypto';
 
 // ── Global safety net — prevent unhandled rejections from crashing ────────────
 process.on('unhandledRejection', (reason) => {
@@ -28,7 +26,6 @@ let _reconnectInProgress = false;
 let _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let _activeZaloApi: Awaited<ReturnType<typeof getZaloApi>> | null = null;
 let _bridgeReadyAnnounced = false;
-let _lastCredsHash = '';
 
 // ── Boot Zalo (also used when /login swaps in a fresh API) ───────────────────
 
@@ -130,7 +127,7 @@ async function startZalo(
       console.warn(`[Boot] Zalo disconnected: duplicate connection (code=${code}, reason=${reason})`);
       tgBot.telegram.sendMessage(
         config.telegram.groupId,
-        '⚠️ Zalo bị ngắt do đăng nhập trùng phiên (duplicate connection). Đóng bớt phiên Zalo Web/PC khác — phiên sẽ tự đồng bộ lại từ máy (agent đẩy credentials).',
+        '⚠️ Zalo bị ngắt do đăng nhập trùng phiên (duplicate connection). Đóng bớt phiên Zalo Web/PC khác rồi gõ /loginlocal để nối lại.',
         { parse_mode: 'HTML' },
       ).catch(() => undefined);
       return;
@@ -139,7 +136,7 @@ async function startZalo(
       console.warn(`[Boot] Zalo disconnected: kicked connection (code=${code}, reason=${reason})`);
       tgBot.telegram.sendMessage(
         config.telegram.groupId,
-        '⚠️ Zalo đã ngắt phiên bridge (kick connection). Phiên sẽ tự đồng bộ lại từ máy (agent đẩy credentials), hoặc gõ <b>/loginlocal</b> trên máy có Zalo PC.',
+        '⚠️ Zalo đã ngắt phiên bridge (kick connection). Gõ <b>/loginlocal</b> trên máy có Zalo PC để nối lại.',
         { parse_mode: 'HTML' },
       ).catch(() => undefined);
       return;
@@ -151,61 +148,6 @@ async function startZalo(
     ).catch(() => undefined);
     scheduleReconnect(5_000);
   });
-}
-
-/** sha256 của credentials.json, hoặc '' nếu không đọc được. */
-function credentialsHash(): string {
-  try {
-    return crypto.createHash('sha256').update(readFileSync(config.zalo.credentialsPath)).digest('hex');
-  } catch {
-    return '';
-  }
-}
-
-/**
- * Đăng nhập lại Zalo từ credentials.json khi file bị thay đổi từ bên ngoài
- * (agent trên máy Windows đẩy phiên mới lên VPS). Dừng listener cũ trước để
- * tránh nhận trùng tin — khác với reconnect, ở đây phiên cũ vẫn đang sống.
- */
-async function reloadZaloFromCredentials(): Promise<void> {
-  if (_reconnectInProgress) return;
-  _reconnectInProgress = true;
-  try {
-    try { _activeZaloApi?.listener.stop(); } catch { /* ignore */ }
-    resetZaloApi();
-    const newApi = await getZaloApi();
-    _setZaloApi?.(newApi);
-    await startZalo(newApi, true);
-    tgBot.telegram.sendMessage(config.telegram.groupId, '🔄 Zalo đã đăng nhập lại bằng phiên mới (đồng bộ từ máy).').catch(() => undefined);
-    terminal.status('zalo', 're-logged in from pushed credentials', 'success');
-  } catch (err) {
-    console.error('[Boot] Reload from credentials failed:', err);
-    tgBot.telegram.sendMessage(
-      config.telegram.groupId,
-      '⚠️ Cần đăng nhập lại Zalo — phiên mới đẩy lên không dùng được.',
-      { parse_mode: 'HTML' },
-    ).catch(() => undefined);
-  } finally {
-    _reconnectInProgress = false;
-  }
-}
-
-/**
- * Theo dõi credentials.json; khi agent đẩy phiên mới lên (file đổi nội dung) thì
- * tự đăng nhập lại. Dùng watchFile (poll) cho ổn định đa nền tảng; chu kỳ 15s là
- * đủ vì agent chạy mỗi 60 phút. So hash để bỏ qua sự kiện ghi dở / trùng nội dung.
- */
-function watchCredentials(): void {
-  _lastCredsHash = credentialsHash();
-  let debounce: ReturnType<typeof setTimeout> | null = null;
-  watchFile(config.zalo.credentialsPath, { interval: 15_000 }, () => {
-    const h = credentialsHash();
-    if (!h || h === _lastCredsHash) return; // không đổi, hoặc đang ghi dở
-    _lastCredsHash = h;
-    if (debounce) clearTimeout(debounce);
-    debounce = setTimeout(() => { void reloadZaloFromCredentials(); }, 1_000);
-  });
-  terminal.status('zalo', 'watching credentials.json for agent pushes', 'muted');
 }
 
 async function main(): Promise<void> {
@@ -287,10 +229,6 @@ async function main(): Promise<void> {
             { parse_mode: 'HTML' },
           )
           .catch(() => undefined);
-      } finally {
-        // Theo dõi credentials.json để agent đẩy phiên mới lên là tự đăng nhập lại,
-        // kể cả khi đăng nhập lúc khởi động thất bại (agent có thể cứu phiên sau).
-        watchCredentials();
       }
     })();
   }).catch((err: unknown) => {

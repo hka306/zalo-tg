@@ -312,23 +312,12 @@ EOF
 EOF
   write_env_var "$out_file" DATA_DIR "$ENV_DATA_DIR"
   write_env_var "$out_file" ZALO_CREDENTIALS_PATH "$ENV_ZALO_CREDENTIALS_PATH"
-  write_env_optional "$out_file" ZALO_TG_SHARED_TMP_ROOT "$ENV_ZALO_TG_SHARED_TMP_ROOT"
   cat >> "$out_file" <<'EOF'
 
 # ─── Zalo behavior ──────────────────────────────────────────────────────────
 EOF
   write_env_var "$out_file" ZALO_SKIP_MUTED_GROUPS "$ENV_ZALO_SKIP_MUTED_GROUPS"
   write_env_var "$out_file" ZALO_MUTE_SILENT "$ENV_ZALO_MUTE_SILENT"
-  cat >> "$out_file" <<'EOF'
-
-# ─── Telegram Local Bot API ─────────────────────────────────────────────────
-EOF
-  write_env_var "$out_file" LOCAL_BOT_API "$ENV_LOCAL_BOT_API"
-  write_env_var "$out_file" TG_LOCAL_SERVER "$ENV_TG_LOCAL_SERVER"
-  write_env_var "$out_file" TG_API_ID "$ENV_TG_API_ID"
-  write_env_var "$out_file" TG_API_HASH "$ENV_TG_API_HASH"
-  write_env_var "$out_file" TG_LOCAL_PORT "$ENV_TG_LOCAL_PORT"
-  write_env_optional "$out_file" TGBOTAPI_DATA_DIR "$ENV_TGBOTAPI_DATA_DIR"
   cat >> "$out_file" <<'EOF'
 
 # ─── Runtime / updater supervision ─────────────────────────────────────────
@@ -395,23 +384,14 @@ configure_env() {
   printf '\n  %s▸ Storage%s\n' "$CYAN" "$RESET"
   ENV_DATA_DIR=$(ask_env_value "DATA_DIR - persistent data directory" "${DATA_DIR:-./data}" 0)
   ENV_ZALO_CREDENTIALS_PATH=$(ask_env_value "ZALO_CREDENTIALS_PATH - Zalo credentials file" "${ZALO_CREDENTIALS_PATH:-./credentials.json}" 0)
-  ENV_ZALO_TG_SHARED_TMP_ROOT=$(ask_env_value "ZALO_TG_SHARED_TMP_ROOT - shared temp root, blank = auto" "${ZALO_TG_SHARED_TMP_ROOT:-}" 0)
 
   printf '\n  %s▸ Zalo behavior%s\n' "$CYAN" "$RESET"
   ENV_ZALO_SKIP_MUTED_GROUPS=$(ask_env_value "ZALO_SKIP_MUTED_GROUPS - 1 skip muted groups, 0 mirror them" "${ZALO_SKIP_MUTED_GROUPS:-0}" 0)
   ENV_ZALO_MUTE_SILENT=$(ask_env_value "ZALO_MUTE_SILENT - 1 mirror muted threads silently" "${ZALO_MUTE_SILENT:-1}" 0)
 
-  printf '\n  %s▸ Telegram Local Bot API%s\n' "$CYAN" "$RESET"
-  ENV_LOCAL_BOT_API=$(ask_env_value "LOCAL_BOT_API - 1 use local server, 0 official API" "${LOCAL_BOT_API:-0}" 0)
-  ENV_TG_LOCAL_SERVER=$(ask_env_value "TG_LOCAL_SERVER - local Bot API URL" "${TG_LOCAL_SERVER:-http://127.0.0.1:8081}" 0)
-  ENV_TG_API_ID=$(ask_env_value "TG_API_ID - my.telegram.org API ID, blank if unused" "${TG_API_ID:-}" 0)
-  ENV_TG_API_HASH=$(ask_env_value "TG_API_HASH - my.telegram.org API hash, blank if unused" "${TG_API_HASH:-}" 0)
-  ENV_TG_LOCAL_PORT=$(ask_env_value "TG_LOCAL_PORT - Docker Compose host port" "${TG_LOCAL_PORT:-8081}" 0)
-  ENV_TGBOTAPI_DATA_DIR=$(ask_env_value "TGBOTAPI_DATA_DIR - start-local-api.sh data dir, blank = default" "${TGBOTAPI_DATA_DIR:-}" 0)
-
   printf '\n  %s▸ Runtime%s\n' "$CYAN" "$RESET"
   ENV_ZALO_TG_RUNNER=$(ask_env_value "ZALO_TG_RUNNER - 1 only under external supervisor, blank normally" "${ZALO_TG_RUNNER:-}" 0)
-  ENV_NODE_ENV=$(ask_env_value "NODE_ENV - blank normally, production in Docker" "${NODE_ENV:-}" 0)
+  ENV_NODE_ENV=$(ask_env_value "NODE_ENV - leave blank normally" "${NODE_ENV:-}" 0)
 
   printf '\n  %s▸ Terminal UI%s\n' "$CYAN" "$RESET"
   ENV_ZALO_TG_TUI=$(ask_env_value "ZALO_TG_TUI - 0 disable dashboard, blank = enabled" "${ZALO_TG_TUI:-}" 0)
@@ -693,11 +673,5 @@ printf '  %s▸%s Start: %s%s npm run dev%s\n' \
   "$CYAN" "$RESET" "$DIM" "$RESET" "$BOLD" "$RESET"
 printf '  %s▸%s Rebuild TUI: %s%s npm run tui:build%s\n' \
   "$CYAN" "$RESET" "$DIM" "$RESET" "$BOLD" "$RESET"
-
-if grep -q '^LOCAL_BOT_API=1' .env 2>/dev/null; then
-  printf '\n'
-  printf '  %s▸%s %sLocal Bot API:%s %sdocker compose up -d telegram-bot-api%s\n' \
-    "$YELLOW" "$RESET" "$BOLD" "$RESET" "$DIM" "$RESET"
-fi
 
 printf '\n%s\n' "${DIM}$(line "─")${RESET}"

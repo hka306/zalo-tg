@@ -51,30 +51,10 @@ function excludeThreads(): Record<string, true> {
   return out;
 }
 
-
-function localBotApiServer(): string | null {
-  if (!envFlag('LOCAL_BOT_API')) return null;
-  const raw = requireEnv('TG_LOCAL_SERVER').replace(/\/+$/, '');
-  let parsed: URL;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    throw new Error('TG_LOCAL_SERVER must be a valid http(s) URL when LOCAL_BOT_API is enabled');
-  }
-  if (!['http:', 'https:'].includes(parsed.protocol)) {
-    throw new Error('TG_LOCAL_SERVER must use http or https');
-  }
-  return raw;
-}
-
 export const config = {
   telegram: {
     token:       requireEnv('TG_TOKEN'),
     groupId:     requireTelegramGroupId(),
-    /** URL của local Bot API server, ví dụ: http://localhost:8081.
-     *  Chỉ dùng khi LOCAL_BOT_API=1 và TG_LOCAL_SERVER được set.
-     *  Nếu không → dùng official api.telegram.org. */
-    localServer: localBotApiServer(),
   },
   zalo: {
     credentialsPath: resolvePath(process.env.ZALO_CREDENTIALS_PATH, 'credentials.json'),

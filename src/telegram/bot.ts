@@ -1,11 +1,9 @@
 import { Telegraf } from 'telegraf';
 import https from 'https';
-import http from 'http';
 import { config } from '../config.js';
 
 // Force IPv4 to avoid ETIMEDOUT on systems where IPv6 is blocked/unreachable
 const agent = new https.Agent({ family: 4 });
-const localAgent = new http.Agent({ family: 4 });
 
 const BOT_COMMANDS = [
   { command: 'loginlocal',     description: 'Đăng nhập bằng phiên Zalo PC trên máy (Windows)' },
@@ -24,12 +22,7 @@ const BOT_COMMANDS = [
 
 /** Singleton Telegraf bot instance shared across the app. */
 export const tgBot = new Telegraf(config.telegram.token, {
-  telegram: config.telegram.localServer
-    ? {
-        apiRoot: config.telegram.localServer,
-        agent: config.telegram.localServer.startsWith('https') ? agent : localAgent,
-      }
-    : { agent },
+  telegram: { agent },
 });
 
 // Keep polling alive when one update handler fails. Without an explicit catch,

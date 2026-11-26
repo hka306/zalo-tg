@@ -20,13 +20,13 @@ test('writeEnvUpdates creates .env with quoted values when needed', () => {
   const envPath = tempEnv('');
   try {
     const updated = writeEnvUpdates(
-      { ZALO_MUTE_SILENT: '0', TG_LOCAL_SERVER: 'http://127.0.0.1:8081', DATA_DIR: 'my dir' },
+      { ZALO_MUTE_SILENT: '0', ZALO_SKIP_MUTED_GROUPS: '1', DATA_DIR: 'my dir' },
       envPath,
     );
-    assert.deepEqual(updated, ['ZALO_MUTE_SILENT', 'TG_LOCAL_SERVER', 'DATA_DIR']);
+    assert.deepEqual(updated, ['ZALO_MUTE_SILENT', 'ZALO_SKIP_MUTED_GROUPS', 'DATA_DIR']);
     assert.equal(
       readFileSync(envPath, 'utf8'),
-      'ZALO_MUTE_SILENT=0\nTG_LOCAL_SERVER=http://127.0.0.1:8081\nDATA_DIR="my dir"\n',
+      'ZALO_MUTE_SILENT=0\nZALO_SKIP_MUTED_GROUPS=1\nDATA_DIR="my dir"\n',
     );
   } finally {
     cleanup(envPath);
@@ -62,30 +62,18 @@ test('writeEnvUpdates preserves comments, order and unrelated lines', () => {
 });
 
 test('writeEnvUpdates replaces an existing value with the same key', () => {
-  const envPath = tempEnv('LOCAL_BOT_API=0\n');
+  const envPath = tempEnv('ZALO_MUTE_SILENT=0\n');
   try {
-    writeEnvUpdates({ LOCAL_BOT_API: '1' }, envPath);
-    assert.equal(readFileSync(envPath, 'utf8'), 'LOCAL_BOT_API=1\n');
+    writeEnvUpdates({ ZALO_MUTE_SILENT: '1' }, envPath);
+    assert.equal(readFileSync(envPath, 'utf8'), 'ZALO_MUTE_SILENT=1\n');
   } finally {
     cleanup(envPath);
   }
 });
 
-test('TG_LOCAL_SERVER step is only included when LOCAL_BOT_API is enabled', () => {
-  const localServerStep = SETUP_STEPS.find(step => step.key === 'TG_LOCAL_SERVER');
-  assert.ok(localServerStep, 'TG_LOCAL_SERVER step should exist');
-  const condition = localServerStep!.condition!;
-  assert.equal(condition({ LOCAL_BOT_API: '1' }, {}), true);
-  assert.equal(condition({ LOCAL_BOT_API: '0' }, {}), false);
-  assert.equal(condition({}, { LOCAL_BOT_API: '1' }), true);
-  assert.equal(condition({}, {}), false);
-});
-
 test('wizard steps cover the interactive env variables', () => {
   const keys = SETUP_STEPS.map(step => step.key);
   assert.deepEqual(keys, [
-    'LOCAL_BOT_API',
-    'TG_LOCAL_SERVER',
     'ZALO_SKIP_MUTED_GROUPS',
     'ZALO_MUTE_SILENT',
     'ZALO_DM_NATIVE_REACTION',

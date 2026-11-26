@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 const cwd = path.resolve(import.meta.dirname, '..');
 
 const CONFIG_KEYS = [
-  'TG_TOKEN', 'TG_GROUP_ID', 'LOCAL_BOT_API', 'TG_LOCAL_SERVER',
+  'TG_TOKEN', 'TG_GROUP_ID',
   'DATA_DIR', 'ZALO_CREDENTIALS_PATH', 'ZALO_SKIP_MUTED_GROUPS', 'ZALO_MUTE_SILENT',
   'ZALO_DM_NATIVE_REACTION', 'ZALO_EXCLUDE_THREADS',
 ] as const;
@@ -93,26 +93,4 @@ test('config parses ZALO_EXCLUDE_THREADS into type:id keys and defaults bare ids
 
   const empty = runConfig(valid);
   assert.deepEqual(JSON.parse(empty.stdout).zalo.excludeThreads, {});
-});
-
-test('local Bot API mode requires a valid HTTP URL and trims trailing slashes', () => {
-  const missing = runConfig({ ...valid, LOCAL_BOT_API: '1' });
-  assert.notEqual(missing.status, 0);
-  assert.match(missing.stderr, /TG_LOCAL_SERVER/);
-
-  const invalid = runConfig({ ...valid, LOCAL_BOT_API: '1', TG_LOCAL_SERVER: 'file:///tmp/bot' });
-  assert.notEqual(invalid.status, 0);
-  assert.match(invalid.stderr, /http or https/);
-
-  const enabled = runConfig({
-    ...valid,
-    LOCAL_BOT_API: 'true',
-    TG_LOCAL_SERVER: 'http://localhost:8081///',
-  });
-  assert.equal(enabled.status, 0, enabled.stderr);
-  assert.equal(JSON.parse(enabled.stdout).telegram.localServer, 'http://localhost:8081');
-
-  const disabled = runConfig({ ...valid, LOCAL_BOT_API: '0', TG_LOCAL_SERVER: 'not a URL' });
-  assert.equal(disabled.status, 0, disabled.stderr);
-  assert.equal(JSON.parse(disabled.stdout).telegram.localServer, null);
 });
