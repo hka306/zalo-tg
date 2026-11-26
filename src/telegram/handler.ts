@@ -907,7 +907,7 @@ export function setupTelegramHandler(
       : {};
     const sess = loadAppSession();
     if (!sess) {
-      await ctx.reply('❌ Chưa có session App API (không còn khả dụng sau khi bỏ đăng nhập QR).', { parse_mode: 'HTML', ...replyOpts });
+      await ctx.reply('❌ Chưa có session App API (app-session.json chưa sẵn sàng).', { parse_mode: 'HTML', ...replyOpts });
       return;
     }
     if (!sess.dkey) {
