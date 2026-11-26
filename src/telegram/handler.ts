@@ -38,7 +38,7 @@ import { tgBot } from './bot.js';
 import { config } from '../config.js';
 import { downloadToTemp, cleanTemp, convertStickerToPng, convertTgsToGif, convertToM4a, extractVideoThumbnail, convertWebmToGif } from '../utils/media.js';
 import { getZaloApi, resetZaloApi } from '../zalo/client.js';
-import { forceRestartZaloPc, loadBrowserZaloSession, loadLocalZaloSession } from '../zalo/localSession.js';
+import { forceRestartZaloPc, loadBrowserZaloSession } from '../zalo/localSession.js';
 import { writePrivateJsonFileSync } from '../utils/privateFile.js';
 import { loadAppSession, invalidateAppSession, appGetReceivedFriendRequests, appGetSentFriendRequests, appGetGroupInfo, appGetGroupMembersInfo } from '../zalo/appApi.js';
 import { resetMemberCacheLoaded } from '../zalo/handler.js';
@@ -212,13 +212,9 @@ export function setupTelegramHandler(
     const threadId = isFromGroup ? ctx.message.message_thread_id : undefined;
     const msgOpts  = threadId ? { message_thread_id: threadId } : {};
 
-    const force = /\bforce\b/i.test((ctx.message as { text?: string }).text ?? '');
-    await ctx.reply(
-      force ? '🔄 Đang đóng Zalo PC, lấy phiên rồi mở lại...' : '🔄 Đang lấy phiên Zalo PC trên máy...',
-      msgOpts,
-    ).catch(() => undefined);
+    await ctx.reply('🔄 Đang đóng Zalo PC để lấy phiên, rồi sẽ mở lại...', msgOpts).catch(() => undefined);
     try {
-      const session = (force ? await forceRestartZaloPc() : await loadLocalZaloSession()) ?? loadBrowserZaloSession();
+      const session = (await forceRestartZaloPc()) ?? loadBrowserZaloSession();
       if (!session) {
         await ctx.reply(
           '❌ Không tìm thấy phiên Zalo PC trên máy (chỉ hỗ trợ Windows, cùng user Windows, và Zalo PC đang đăng nhập).',

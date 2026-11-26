@@ -266,7 +266,7 @@ function zaloPcExePath(): string {
 
 /**
  * Đóng hẳn Zalo PC, đọc phiên khi file đã nhả khoá, rồi mở lại Zalo PC. Không cần quyền Administrator.
- * Chỉ gọi khi operator gõ `/loginlocal force`: Zalo PC có thể mất nháp tin nhắn chưa gửi.
+ * Chỉ gọi khi operator gõ `/loginlocal`: Zalo PC có thể mất nháp tin nhắn chưa gửi.
  */
 export async function forceRestartZaloPc(): Promise<LocalZaloSession | null> {
   if (process.platform !== 'win32') return null;
