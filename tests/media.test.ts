@@ -2,7 +2,6 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import os from 'node:os';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { mkdtemp, readFile, writeFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
 
@@ -69,25 +68,6 @@ test('detectMediaType handles case, query strings and unknown extensions', () =>
   assert.equal(detectMediaType('https://x/y.png?download=.bin'), 'image');
 });
 
-test('downloadToTemp copies file URLs into bridge-owned storage', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'zalo-tg-file-url-'));
-  const src = path.join(dir, 'nguồn.txt');
-  await writeFile(src, 'payload', 'utf8');
-  const copied = await downloadToTemp(pathToFileURL(src).toString(), '../unsafe?.txt');
-  assert.equal(await readFile(copied, 'utf8'), 'payload');
-  assert.notEqual(copied, src);
-  assert.equal(path.basename(copied).includes('/'), false);
-  await cleanTemp(copied);
-});
-
-test('downloadToTemp explains an unshared Local Bot API file path', async () => {
-  const missing = pathToFileURL(path.join(os.tmpdir(), `missing-local-bot-${process.pid}.webm`)).toString();
-  await assert.rejects(
-    () => downloadToTemp(missing, 'sticker.webm'),
-    /Local Bot API file is not visible.*same absolute path/,
-  );
-});
-
 test('convertTgsToGif renders every Lottie frame into a transparent GIF', async () => {
   const dir = await mkdtemp(path.join(os.tmpdir(), 'zalo-tg-tgs-'));
   const tgsPath = path.join(dir, 'sticker.tgs');
@@ -127,30 +107,13 @@ test('downloadToTemp rejects nonsensical retry counts before I/O', async () => {
   await assert.rejects(() => downloadToTemp('https://invalid.example/file', 'x', 1.5), /retries must be/);
 });
 
-test('downloadToTempFromCandidates falls back when the preferred URL is unavailable', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'zalo-tg-media-fallback-'));
-  const missing = pathToFileURL(path.join(dir, 'missing.jpg')).toString();
-  const fallback = path.join(dir, 'fallback.jpg');
-  await writeFile(fallback, 'fallback-image', 'utf8');
-
-  const downloaded = await downloadToTempFromCandidates(
-    [missing, pathToFileURL(fallback).toString(), pathToFileURL(fallback).toString()],
-    'photo.jpg',
+test('downloadToTempFromCandidates throws AggregateError after every candidate fails', async () => {
+  await assert.rejects(
+    () => downloadToTempFromCandidates(['http://127.0.0.1:1/a', 'http://127.0.0.1:1/b'], 'photo.jpg', 1),
+    (err: unknown) => err instanceof AggregateError && err.errors.length === 2,
   );
-  assert.equal(await readFile(downloaded, 'utf8'), 'fallback-image');
-  await cleanTemp(downloaded);
 });
 
 test('cleanTemp is idempotent for missing paths', async () => {
   await cleanTemp(path.join(os.tmpdir(), `missing-${process.pid}-${Date.now()}`));
-});
-
-test('downloadToTemp handles file URLs with Docker hostname from local Bot API', async () => {
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'zalo-tg-docker-host-'));
-  const src = path.join(dir, 'test.txt');
-  await writeFile(src, 'docker-payload', 'utf8');
-  const dockerUrl = `file://telegram-bot-api${src}`;
-  const copied = await downloadToTemp(dockerUrl, 'docker-test.txt');
-  assert.equal(await readFile(copied, 'utf8'), 'docker-payload');
-  await cleanTemp(copied);
 });

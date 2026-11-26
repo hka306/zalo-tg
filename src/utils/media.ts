@@ -1,16 +1,13 @@
 import axios from 'axios';
-import { createWriteStream, mkdirSync, copyFileSync } from 'fs';
+import { createWriteStream, mkdirSync } from 'fs';
 import { readFile, stat, unlink, writeFile } from 'fs/promises';
 import { spawn } from 'child_process';
-import { fileURLToPath } from 'url';
 import { gunzipSync } from 'zlib';
 import path from 'path';
 import { imageSizeFromFile } from 'image-size/fromFile';
 import { createSharedTempPath, getSharedTempDir } from './sharedTemp.js';
 
-// Local Bot API reads outgoing files from a shared host/container path.
-// Use a permission-safe resolver instead of the historical fixed /tmp/zalo-tg
-// directory, which can be left root-owned on Docker bind mounts.
+// Permission-safe temp dir resolver (avoids the historical fixed /tmp/zalo-tg path).
 const TMP_DIR = getSharedTempDir('zalo-tg');
 
 function uniqueTempName(prefix: string, extension: string): string {
@@ -28,55 +25,12 @@ export function sanitizeFileName(fileName: string, fallback = `download_${Date.n
   return cleaned || fallback;
 }
 
-/** Download a remote URL to a temp file. Returns the local file path.
- *  When using a local Telegram Bot API server (--local flag), getFileLink()
- *  returns a file:// URL pointing to the server's working directory.
- *  In that case we copy the file directly instead of downloading via HTTP.
- */
+/** Download a remote URL to a temp file. Returns the local file path. */
 export async function downloadToTemp(url: string, fileName?: string, retries = 3): Promise<string> {
   if (!Number.isInteger(retries) || retries < 1) {
     throw new Error('retries must be an integer >= 1');
   }
   mkdirSync(TMP_DIR, { recursive: true });
-
-  // Local Bot API server returns file:// paths — copy directly, no HTTP needed
-  if (url.startsWith('file:')) {
-    let srcPath: string;
-    try {
-      srcPath = fileURLToPath(url);
-    } catch {
-      // Telegraf preserves custom apiRoot hostname in file:// URLs (e.g. file://telegram-bot-api/...),
-      // which fileURLToPath rejects on POSIX. Normalize to file:/// (empty host) and retry.
-      srcPath = fileURLToPath(url.replace(/^file:\/\/[^\/]+/, 'file://'));
-    }
-    const baseName = sanitizeFileName(fileName ?? path.basename(srcPath));
-    const destPath = path.join(TMP_DIR, `${Date.now()}_${Math.random().toString(36).slice(2, 7)}_${baseName}`);
-    try {
-      copyFileSync(srcPath, destPath);
-    } catch (err) {
-      const code = err && typeof err === 'object' && 'code' in err
-        ? String((err as { code?: unknown }).code)
-        : '';
-      if (code === 'ENOENT') {
-        throw new Error(
-          `Local Bot API file is not visible to the bridge: ${srcPath}. `
-          + 'Mount TELEGRAM_WORK_DIR at the same absolute path in both processes.',
-          { cause: err },
-        );
-      }
-      if (code === 'EACCES') {
-        throw new Error(
-          `Local Bot API file cannot be read due to permissions: ${srcPath}. `
-          + 'Ensure the bridge container has read permissions (e.g. group_add: ["101"]).',
-          { cause: err },
-        );
-      }
-      throw err;
-    }
-    // The source belongs to telegram-bot-api's cache. Never delete it here;
-    // cleanTemp() only removes the bridge-owned destination copy.
-    return destPath;
-  }
 
   // Sanitize filename and add a unique prefix so concurrent downloads
   // with the same logical name (e.g. multiple 'photo.jpg' in a media group)

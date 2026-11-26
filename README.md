@@ -79,11 +79,9 @@ Phiên được lưu trong `credentials.json` (`{imei, cookie, userAgent}`, **po
 | `ZALO_MUTE_SILENT` | `1` | `1` mirror thread đã mute thành tin Telegram silent; `0` luôn notify. |
 | `ZALO_DM_NATIVE_REACTION` | `1` | `1` hiện reaction DM dạng native trên Telegram; `0` dùng reply tổng hợp. |
 | `ZALO_EXCLUDE_THREADS` | trống | Danh sách thread không mirror: `type:id` (0=DM, 1=nhóm), phân tách bằng dấu phẩy. |
-| `LOCAL_BOT_API` | `0` | `1` gửi Bot API qua `TG_LOCAL_SERVER` (xử lý file lớn ổn hơn). |
-| `TG_LOCAL_SERVER` | `http://127.0.0.1:8081` | Endpoint Local Bot API (chỉ khi `LOCAL_BOT_API=1`). |
 | `ZALO_TG_TUI` | bật | `0` tắt dashboard TUI, in log thường. |
 
-Xem [.env.example](.env.example) để có template đầy đủ (gồm các biến TUI/Docker khác).
+Xem [.env.example](.env.example) để có template đầy đủ (gồm các biến TUI khác).
 
 ## Lệnh Telegram
 

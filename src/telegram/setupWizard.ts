@@ -38,22 +38,6 @@ function currentBool(key: string, fallback: string): (env: NodeJS.ProcessEnv) =>
 
 export const SETUP_STEPS: SetupStep[] = [
   {
-    key: 'LOCAL_BOT_API',
-    title: 'LOCAL_BOT_API',
-    description: 'Dùng Telegram Local Bot API để gửi file lớn (tối đa 2 GB thay vì 20 MB)?',
-    kind: 'bool',
-    current: currentBool('LOCAL_BOT_API', '0'),
-  },
-  {
-    key: 'TG_LOCAL_SERVER',
-    title: 'TG_LOCAL_SERVER',
-    description: 'URL của server Local Bot API (ví dụ http://127.0.0.1:8081 hoặc https://...).',
-    kind: 'text',
-    current: (env) => env.TG_LOCAL_SERVER?.trim() || '(trống)',
-    condition: (answers, env) =>
-      ((answers.LOCAL_BOT_API ?? env.LOCAL_BOT_API?.trim()) || '0') === '1',
-  },
-  {
     key: 'ZALO_SKIP_MUTED_GROUPS',
     title: 'ZALO_SKIP_MUTED_GROUPS',
     description: 'Bỏ qua hoàn toàn các nhóm Zalo đang mute (không mirror lên Telegram)?',

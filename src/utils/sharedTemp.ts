@@ -9,7 +9,6 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { config } from '../config.js';
 
 const dirCache = new Map<string, string>();
 
@@ -31,28 +30,17 @@ function currentUserToken(): string {
   }
 }
 
-function sharedDirMode(): number {
-  // Local Bot API runs in another process/container and must be able to read
-  // file:// uploads by absolute path. Official api.telegram.org only needs the
-  // bridge process to read its own temp files, so keep those directories private.
-  return config.telegram.localServer ? 0o755 : 0o700;
-}
-
-function sharedFileMode(): number {
-  return config.telegram.localServer ? 0o644 : 0o600;
-}
-
 function verifyWritableDirectory(dir: string): boolean {
   try {
-    mkdirSync(dir, { recursive: true, mode: sharedDirMode() });
-    try { chmodSync(dir, sharedDirMode()); } catch { /* best-effort on POSIX only */ }
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+    try { chmodSync(dir, 0o700); } catch { /* best-effort on POSIX only */ }
     accessSync(dir, constants.W_OK | constants.X_OK);
 
     const probe = path.join(
       dir,
       `.zalo-tg-write-test-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
-    writeFileSync(probe, '', { mode: sharedFileMode() });
+    writeFileSync(probe, '', { mode: 0o600 });
     unlinkSync(probe);
     return true;
   } catch {
@@ -60,19 +48,8 @@ function verifyWritableDirectory(dir: string): boolean {
   }
 }
 
-/**
- * Root for files that may need to be visible to both the bridge and a local
- * Telegram Bot API server. Override with ZALO_TG_SHARED_TMP_ROOT when Docker
- * mounts a different shared path into both containers.
- */
+/** Root for the bridge's own temp files. */
 export function getSharedTempRoot(): string {
-  const override = process.env.ZALO_TG_SHARED_TMP_ROOT?.trim();
-  if (override) return path.resolve(override);
-
-  // In local mode the Bot API server reads file:// paths from its own
-  // filesystem namespace. The project mounts /tmp into both containers/processes.
-  if (config.telegram.localServer && process.platform !== 'win32') return '/tmp';
-
   return os.tmpdir();
 }
 
@@ -88,7 +65,7 @@ export function getSharedTempRoot(): string {
 export function getSharedTempDir(namespace = 'zalo-tg'): string {
   const root = getSharedTempRoot();
   const safeNamespace = sanitizePathSegment(namespace, 'zalo-tg');
-  const cacheKey = `${root}\0${safeNamespace}\0${config.telegram.localServer ? 'local' : 'remote'}`;
+  const cacheKey = `${root}\0${safeNamespace}`;
   const cached = dirCache.get(cacheKey);
   if (cached && verifyWritableDirectory(cached)) return cached;
 
@@ -112,10 +89,7 @@ export function getSharedTempDir(namespace = 'zalo-tg'): string {
     }
   } catch { /* fall through to explicit error below */ }
 
-  throw new Error(
-    `Cannot create a writable shared temp directory under ${root}. `
-    + 'Check Docker volume permissions or set ZALO_TG_SHARED_TMP_ROOT to a writable path mounted into both containers.',
-  );
+  throw new Error(`Cannot create a writable temp directory under ${root}.`);
 }
 
 export function createSharedTempPath(namespace: string, prefix: string, extension: string): string {
@@ -130,5 +104,5 @@ export function createSharedTempPath(namespace: string, prefix: string, extensio
 }
 
 export function prepareSharedTempFile(filePath: string): void {
-  try { chmodSync(filePath, sharedFileMode()); } catch { /* Windows/non-POSIX FS */ }
+  try { chmodSync(filePath, 0o600); } catch { /* Windows/non-POSIX FS */ }
 }

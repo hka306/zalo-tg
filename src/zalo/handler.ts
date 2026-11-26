@@ -1,7 +1,6 @@
 import { ThreadType, FriendEventType } from 'zca-js';
 import type { TelegramEmoji } from 'telegraf/types';
 import { createReadStream } from 'fs';
-import { pathToFileURL } from 'url';
 import path from 'path';
 import QRCode from 'qrcode';
 
@@ -508,17 +507,9 @@ function parseContent(raw: string | ZaloMediaContent | Record<string, unknown>):
   return { text: null, media: raw as ZaloMediaContent };
 }
 
-/** Prefer zero-copy file URIs with telegram-bot-api --local. */
-function telegramMediaFile(filePath: string, forceMultipart = false): string | { source: ReturnType<typeof createReadStream> } {
-  return config.telegram.localServer && !forceMultipart
-    ? pathToFileURL(filePath).toString()
-    : { source: createReadStream(filePath) };
-}
-
-function telegramErrorCode(err: unknown): number | undefined {
-  if (!err || typeof err !== 'object' || !('response' in err)) return undefined;
-  const response = (err as { response?: { error_code?: unknown } }).response;
-  return typeof response?.error_code === 'number' ? response.error_code : undefined;
+/** Wrap a local file path as a Telegram multipart upload source. */
+function telegramMediaFile(filePath: string, _forceMultipart = false): { source: ReturnType<typeof createReadStream> } {
+  return { source: createReadStream(filePath) };
 }
 
 function telegramErrorDescription(err: unknown): string {
@@ -530,26 +521,14 @@ function telegramErrorDescription(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/**
- * A local Bot API process/container may not share the bridge's /tmp mount. In
- * that case file:// is rejected before Telegram accepts the request. Retrying
- * a rejected (HTTP 400) request as multipart is safe and works across that
- * deployment boundary.
- */
+// Thin pass-through kept so the ~10 media call sites stay untouched; it once
+// retried local-Bot-API file:// uploads as multipart, but the bridge now always
+// uploads multipart, so `forceMultipart` is always false.
 async function withLocalMediaFallback<T>(
   operation: (forceMultipart: boolean) => Promise<T>,
-  label: string,
+  _label: string,
 ): Promise<T> {
-  try {
-    return await operation(false);
-  } catch (err) {
-    const description = telegramErrorDescription(err);
-    const isLocalFileError = telegramErrorCode(err) === 400
-      && /(file:\/\/|http url|url host|wrong file|failed to get.*url|file.*not found|can't open|unsupported.*protocol)/i.test(description);
-    if (!config.telegram.localServer || !isLocalFileError) throw err;
-    console.warn(`[Zalo→TG] ${label}: local URI rejected (${description}); retrying multipart`);
-    return operation(true);
-  }
+  return operation(false);
 }
 
 type TelegramMediaSendOptions = Parameters<typeof tg.sendAnimation>[2];
