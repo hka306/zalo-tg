@@ -69,14 +69,14 @@ function syncAppSession(api: ZaloAPI, credentials: { imei: string; cookie: unkno
 
 /**
  * Return (and lazily initialise) the Zalo API singleton from saved credentials.
- * Chỉ dùng phiên đã lưu (agent đẩy credentials.json, hoặc /loginlocal) — không còn QR.
+ * Chỉ dùng phiên đã lưu (đọc từ Zalo PC trên máy, hoặc /loginlocal) — không còn QR.
  * Thiếu hoặc hỏng credentials thì ném lỗi để caller báo Telegram.
  */
 export async function getZaloApi(): Promise<ZaloAPI> {
   if (_api) return _api;
 
   if (!existsSync(config.zalo.credentialsPath)) {
-    throw new Error('Chưa có file credentials.json — nạp phiên Zalo (agent đẩy credentials hoặc /loginlocal).');
+    throw new Error('Chưa có phiên Zalo. Đăng nhập Zalo PC trên máy này rồi gõ /loginlocal.');
   }
 
   const zalo = new Zalo(ZALO_OPTIONS);

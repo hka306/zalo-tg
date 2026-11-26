@@ -125,7 +125,7 @@ function readCookieRows(dbPath: string): Array<{ host: string; name: string; enc
   const out = execFileSync(process.execPath, ['--experimental-sqlite', '-e', inline, dbPath], {
     encoding: 'utf8',
     maxBuffer: 1 << 22,
-    stdio: ['ignore', 'pipe', 'ignore'], // nuốt cảnh báo "experimental" ở stderr
+    stdio: ['ignore', 'pipe', 'pipe'], // stderr chỉ hiện khi lỗi, để báo lý do
   });
   const rows: Array<{ host: string; name: string; enc: Buffer }> = [];
   for (const line of out.split('\n')) {
@@ -137,19 +137,32 @@ function readCookieRows(dbPath: string): Array<{ host: string; name: string; enc
   return rows;
 }
 
+/** Ghi lý do lỗi ra console. Hàm đọc phiên trả null thay vì ném lỗi, nên không có log thì không biết bước nào chặn. */
+function logFail(step: string, err?: unknown): null {
+  let detail = '';
+  if (err instanceof Error) {
+    const { stderr, status } = err as Error & { stderr?: unknown; status?: unknown };
+    detail = stderr ? String(stderr).trim() : status !== undefined ? `exit ${status}` : err.message;
+  }
+  console.warn(`[Zalo PC] ${step}${detail ? `: ${detail.slice(0, 300)}` : ''}`);
+  return null;
+}
+
 /**
  * Lấy phiên Zalo PC đang đăng nhập trên máy, hoặc `null` nếu không khả dụng
  * (không phải Windows, Zalo PC chưa đăng nhập, hoặc không giải mã được).
  */
 export async function loadLocalZaloSession(): Promise<LocalZaloSession | null> {
   if (process.platform !== 'win32') return null;
+  let step = 'đọc imei';
   try {
     const root = zaloDataRoot();
     const imei = readImeiFromLevelDb(join(root, 'Partitions', 'zalo', 'Local Storage', 'leveldb'));
-    if (!imei) return null;
+    if (!imei) return logFail('không tìm thấy imei (z_uuid) trong Local Storage');
 
+    step = 'sao chép file Cookies';
     const srcCookies = join(root, 'Partitions', 'zalo', 'Network', 'Cookies');
-    if (!existsSync(srcCookies)) return null;
+    if (!existsSync(srcCookies)) return logFail('không thấy file Cookies của Zalo PC');
     const tmpDir = mkdtempSync(join(os.tmpdir(), 'ztg-ck-'));
     const tmpCookies = join(tmpDir, 'Cookies');
     copyFileSync(srcCookies, tmpCookies); // tránh khoá file khi Zalo đang chạy
@@ -157,10 +170,15 @@ export async function loadLocalZaloSession(): Promise<LocalZaloSession | null> {
       if (existsSync(srcCookies + ext)) copyFileSync(srcCookies + ext, tmpCookies + ext);
     }
 
+    step = 'giải khoá Local State (DPAPI)';
     const key = masterKey(root);
     const now = new Date().toISOString();
     const cookie: Record<string, unknown>[] = [];
-    for (const r of readCookieRows(tmpCookies)) {
+    step = 'đọc file Cookies (sqlite)';
+    const rows = readCookieRows(tmpCookies);
+    const zaloRows = rows.filter((r) => /zalo/.test(r.host) && r.enc.length > 0).length;
+    step = 'giải mã cookie';
+    for (const r of rows) {
       if (!/zalo/.test(r.host) || r.enc.length === 0) continue;
       let value: string;
       try {
@@ -182,9 +200,15 @@ export async function loadLocalZaloSession(): Promise<LocalZaloSession | null> {
         lastAccessed: now,
       });
     }
-    if (!cookie.some((c) => c.key === 'zpw_sek')) return null; // thiếu cookie phiên
+    if (!cookie.some((c) => c.key === 'zpw_sek')) {
+      return logFail(
+        zaloRows === 0 ? 'file Cookies không có cookie Zalo nào (Zalo PC có thể chưa đăng nhập)'
+          : cookie.length === 0 ? `có ${zaloRows} cookie Zalo nhưng không giải mã được`
+          : `giải mã được ${cookie.length} cookie Zalo nhưng thiếu zpw_sek (có thể đã đăng xuất)`,
+      );
+    }
     return { imei, cookie, userAgent: ZALO_PC_UA };
-  } catch {
-    return null;
+  } catch (err) {
+    return logFail(`lỗi ở bước "${step}"`, err);
   }
 }
