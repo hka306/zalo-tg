@@ -18,7 +18,6 @@ import { applyZaloMarkupHtml, formatGroupMsgHtml, formatGroupMsg, groupCaption, 
 import type { ZaloStyle } from '../utils/format.js';
 import { msgStore, userCache, pollStore, sentMsgStore, zaloAlbumStore, reactionEchoStore, reactionSummaryStore, reactionEventDedupeStore, aliasCache, friendsCache, recentlyRecalledMsgIds, recallNotifiedStore, type ZaloQuoteData } from '../store.js';
 import { tgQueue } from '../utils/tgQueue.js';
-import { maybeAutoReply } from './autoReply.js';
 
 // Proxy that routes every tg.* call through the rate-limit queue
 // so 429 errors are auto-retried instead of crashing the process.
@@ -90,7 +89,7 @@ async function populateGroupMemberCache(api: ZaloAPI, groupId: string): Promise<
 
     if (!groupData) {
       usedFallback = true;
-      console.warn(`[Zalo] PC App API unavailable for group ${groupId}, falling back to web API (limited for hidden-member groups). Run /loginapp for full data.`);
+      console.warn(`[Zalo] PC App API unavailable for group ${groupId}, falling back to web API (limited for hidden-member groups); app-session.json not ready yet.`);
       // Fallback: zca-js web API (rate-limited)
       const info = await api.getGroupInfo(groupId) as {
         gridInfoMap?: Record<string, {
@@ -123,14 +122,14 @@ async function populateGroupMemberCache(api: ZaloAPI, groupId: string): Promise<
     if (allUids.length === 0) {
       console.warn(`[Zalo] group ${groupId}: empty memVerList (totalMember=${groupData.totalMember})`);
       if (totalMember && totalMember > 0) {
-        console.warn(`[Zalo] → Group has ${totalMember} members but API returned no member IDs. The group likely has "hide member list" enabled. Run /loginapp to enable full member scanning via PC App API.`);
+        console.warn(`[Zalo] → Group has ${totalMember} members but API returned no member IDs. The group likely has "hide member list" enabled; PC App session (app-session.json) not available.`);
       }
       return;
     }
 
     // Detect hidden-member group: web API returns only admins, PC App returns all
     if (usedFallback && totalMember && allUids.length < totalMember) {
-      console.warn(`[Zalo] group ${groupId}: web API returned ${allUids.length}/${totalMember} members (likely hidden-member group). Run /loginapp for full list.`);
+      console.warn(`[Zalo] group ${groupId}: web API returned ${allUids.length}/${totalMember} members (likely hidden-member group); app-session.json not ready.`);
     }
 
     // Save immediately for members already covered by currentMems
@@ -177,7 +176,7 @@ async function populateGroupMemberCache(api: ZaloAPI, groupId: string): Promise<
 
     console.log(`[Zalo] Cached ${saved}/${allUids.length} members for group ${groupId}` +
       (missingUids.length ? ` (currentMems: ${knownNames.size}, extra fetch: ${missingUids.length})` : ' (all from currentMems)') +
-      (usedFallback && totalMember && allUids.length < totalMember ? ` — partial! Run /loginapp for full ${totalMember} members` : ''));
+      (usedFallback && totalMember && allUids.length < totalMember ? ` — partial (app-session not ready; ${allUids.length}/${totalMember})` : ''));
   } catch (err) {
     console.warn(`[Zalo] populateGroupMemberCache failed for ${groupId}:`, err);
   }
@@ -849,13 +848,6 @@ export async function setupZaloHandler(api: ZaloAPI): Promise<void> {
       if (type === 1 && !_memberCacheLoaded.has(zaloId)) {
         _memberCacheLoaded.add(zaloId);
         void populateGroupMemberCache(api, zaloId);
-      }
-
-      // Auto-reply (offline mode): answer incoming text DMs when enabled.
-      // Fire-and-forget; only 1-1 threads are answered (see autoReply.ts).
-      // Gate on TEXT so we never auto-reply to stickers/media/system events.
-      if (!msg.isSelf && msgType === ZALO_MSG_TYPES.TEXT) {
-        void maybeAutoReply(api, zaloId, type);
       }
 
       // Parse content early so we can start media download in parallel with topic resolution
