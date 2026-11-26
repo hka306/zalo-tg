@@ -790,6 +790,7 @@ export function setupTelegramHandler(
       } catch {
         accountLine = '\n👤 Zalo: đã kết nối 🟢';
       }
+      accountLine += `\n🆔 ID: <code>${escapeHtml(currentApi.getOwnId())}</code>`;
     }
     await ctx.telegram.sendMessage(
       config.telegram.groupId,
@@ -798,6 +799,40 @@ export function setupTelegramHandler(
       `📌 Topics: <b>${all.length}</b> (${groupCount} nhóm, ${dmCount} DM)`,
       { parse_mode: 'HTML' },
     );
+  });
+
+  // ── /contacts — gửi toàn bộ bạn bè Zalo kèm ID dạng .txt vào chat riêng của operator ──
+  tgBot.command('contacts', async (ctx) => {
+    const isPrivate   = ctx.chat.type === 'private';
+    const isFromGroup = ctx.chat.id === config.telegram.groupId;
+    if (!isPrivate && !isFromGroup) return;
+    if (!await requireTelegramOperator(ctx, 'xem danh bạ Zalo')) return;
+    const userId   = ctx.from?.id;
+    const threadId = isFromGroup ? ctx.message.message_thread_id : undefined;
+    const msgOpts  = threadId ? { message_thread_id: threadId } : {};
+    if (userId === undefined) return;
+    if (!currentApi) {
+      await ctx.reply('⚠️ Zalo chưa kết nối.', msgOpts).catch(() => undefined);
+      return;
+    }
+    try {
+      const friends = await currentApi.getAllFriends() as Array<{ userId: string; displayName: string }> | undefined;
+      const lines = (friends ?? [])
+        .map((f) => `${f.displayName}\t${f.userId}`)
+        .sort((a, b) => a.localeCompare(b, 'vi'));
+      // Gửi riêng để danh sách không hiện cho cả group
+      await tgBot.telegram.sendDocument(
+        userId,
+        { source: Buffer.from(lines.join('\n'), 'utf8'), filename: 'danh-ba-zalo.txt' },
+        { caption: `📇 ${lines.length} bạn bè Zalo (tên và ID)` },
+      );
+      if (isFromGroup) await ctx.reply('📇 Đã gửi danh bạ vào chat riêng của bạn.', msgOpts).catch(() => undefined);
+    } catch {
+      await ctx.reply(
+        '❌ Không lấy hoặc gửi được danh bạ. Nếu bot chưa từng nhắn riêng với bạn, hãy nhắn /start cho bot rồi thử lại.',
+        msgOpts,
+      ).catch(() => undefined);
+    }
   });
 
   // ── /seed — show backup decryption seed ──────────────────────────────────
