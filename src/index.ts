@@ -8,8 +8,9 @@ import { startUpdateChecker } from './updater.js';
 import { store, userCache } from './store.js';
 import { registerShutdownHandler, requestShutdown } from './lifecycle.js';
 import { terminal } from './utils/terminal.js';
-import { loadLocalZaloSession } from './zalo/localSession.js';
+import { forceRestartZaloPc, loadBrowserZaloSession, loadLocalZaloSession } from './zalo/localSession.js';
 import { writePrivateJsonFileSync } from './utils/privateFile.js';
+import { isTransientNetworkError } from './utils/zaloRetry.js';
 
 // ── Global safety net — prevent unhandled rejections from crashing ────────────
 process.on('unhandledRejection', (reason) => {
@@ -35,12 +36,30 @@ let _bridgeReadyAnnounced = false;
  * không lấy được để caller dùng tiếp credentials.json sẵn có (nếu còn).
  */
 async function refreshCredentialsFromLocalSession(): Promise<boolean> {
-  const session = await loadLocalZaloSession();
+  const session = await loadLocalZaloSession() ?? loadBrowserZaloSession();
   if (!session) return false;
   writePrivateJsonFileSync(config.zalo.credentialsPath, session);
   resetZaloApi();
   terminal.status('zalo login', 'dùng phiên Zalo PC trên máy', 'info');
   return true;
+}
+
+/**
+ * Đăng nhập bằng credentials.json. Nếu lỗi không phải mạng (phiên đã lưu hỏng hoặc chưa có phiên),
+ * tự đóng Zalo PC để đọc phiên mới rồi thử lại đúng một lần. Lỗi mạng thì không đóng Zalo PC.
+ */
+async function getZaloApiOrRecover(): Promise<Awaited<ReturnType<typeof getZaloApi>>> {
+  try {
+    return await getZaloApi();
+  } catch (err) {
+    if (process.platform !== 'win32' || isTransientNetworkError(err)) throw err;
+    terminal.status('zalo login', 'phiên đã lưu không dùng được, đang đóng Zalo PC để lấy phiên mới', 'warn');
+    tgBot.telegram.sendMessage(config.telegram.groupId, '🔄 Phiên đã lưu không dùng được, bot đang tự đóng Zalo PC để lấy phiên mới...').catch(() => undefined);
+    const session = await forceRestartZaloPc();
+    if (!session) throw err;
+    writePrivateJsonFileSync(config.zalo.credentialsPath, session);
+    return await getZaloApi();
+  }
 }
 
 async function pruneLeftGroupTopics(api: Awaited<ReturnType<typeof getZaloApi>>): Promise<void> {
@@ -101,7 +120,7 @@ async function startZalo(
         try {
           await refreshCredentialsFromLocalSession();
           resetZaloApi();
-          const newApi = await getZaloApi();
+          const newApi = await getZaloApiOrRecover();
           _setZaloApi?.(newApi);
           await startZalo(newApi, true);
           tgBot.telegram.sendMessage(config.telegram.groupId, '✅ Zalo đã kết nối lại và đang đồng bộ lại tin gần đây.').catch(() => undefined);
@@ -217,7 +236,7 @@ async function main(): Promise<void> {
     void (async () => {
       try {
         await refreshCredentialsFromLocalSession();
-        const api = await getZaloApi();
+        const api = await getZaloApiOrRecover();
         setZaloApi(api);   // ← inject into Telegram handler so TG→Zalo works
         await startZalo(api);
       } catch (err) {

@@ -97,7 +97,7 @@ Luồng dùng từ đầu đến cuối:
 
 **5. Khi mất kết nối**
 
-- App tự đọc lại phiên Zalo PC để nối lại. Nếu Zalo báo trùng/kick phiên, gõ `/loginlocal` trên máy có Zalo PC.
+- App tự đọc lại phiên Zalo PC để nối lại. Nếu phiên đã lưu không dùng được (không phải lỗi mạng), app tự đóng Zalo PC, lấy phiên mới, rồi mở lại Zalo PC nếu nó đang chạy trước đó. Nếu Zalo báo trùng/kick phiên, gõ `/loginlocal` trên máy có Zalo PC.
 - Nên **đóng app Zalo PC sau khi bridge đã có phiên** để tránh hai client tranh chấp kết nối (xem [Ghi chú vận hành](#ghi-chú-vận-hành)).
 
 ## Biến môi trường
@@ -121,7 +121,7 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 
 | Lệnh | Công dụng |
 | --- | --- |
-| `/loginlocal` | Đăng nhập bằng phiên Zalo PC trên máy (Windows), không QR. |
+| `/loginlocal` | Đăng nhập bằng phiên Zalo PC trên máy (Windows), không QR. Lệnh tự đóng Zalo PC, lấy phiên rồi mở lại (có thể mất nháp chưa gửi). |
 | `/search` | Tìm bạn bè / nhóm Zalo và tạo/mở topic. |
 | `/group_info` | Xem thông tin & thành viên nhóm Zalo của topic hiện tại. |
 | `/group_infoall` | Xem đầy đủ thành viên nhóm (kể cả nhóm ẩn danh sách). |
