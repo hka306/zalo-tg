@@ -121,7 +121,7 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 
 | Lệnh | Công dụng |
 | --- | --- |
-| `/loginlocal` | Đăng nhập bằng phiên Zalo PC trên máy (Windows), không QR. |
+| `/loginlocal` | Đăng nhập bằng phiên Zalo PC trên máy (Windows), không QR. Gõ `/loginlocal force` để đóng hẳn Zalo PC, lấy phiên rồi mở lại (có thể mất nháp chưa gửi). |
 | `/search` | Tìm bạn bè / nhóm Zalo và tạo/mở topic. |
 | `/group_info` | Xem thông tin & thành viên nhóm Zalo của topic hiện tại. |
 | `/group_infoall` | Xem đầy đủ thành viên nhóm (kể cả nhóm ẩn danh sách). |

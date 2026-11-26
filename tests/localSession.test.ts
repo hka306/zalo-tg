@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 
-const { decryptCookieValue, readImeiFromLevelDb, loadLocalZaloSession, copyLockedFile, loadBrowserZaloSession } = await import(
+const { decryptCookieValue, readImeiFromLevelDb, loadLocalZaloSession, forceRestartZaloPc, copyLockedFile, loadBrowserZaloSession } = await import(
   '../src/zalo/localSession.js'
 );
 
@@ -41,6 +41,11 @@ await test('readImeiFromLevelDb trả null khi thư mục không tồn tại', (
 await test('loadLocalZaloSession trả null khi không phải Windows', async () => {
   if (process.platform === 'win32') return; // chỉ kiểm trên non-Windows (CI)
   assert.equal(await loadLocalZaloSession(), null);
+});
+
+await test('forceRestartZaloPc trả null khi không phải Windows', async () => {
+  if (process.platform === 'win32') return; // tránh đóng Zalo PC thật khi chạy trên Windows
+  assert.equal(await forceRestartZaloPc(), null);
 });
 
 await test('copyLockedFile copy file thường, và ném lỗi khi nguồn không tồn tại', () => {

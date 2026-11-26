@@ -14,7 +14,7 @@ import { readdirSync, readFileSync, statSync, writeFileSync, existsSync, mkdtemp
 import { join } from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 
 export interface LocalZaloSession {
   imei: string;
@@ -239,5 +239,51 @@ export async function loadLocalZaloSession(): Promise<LocalZaloSession | null> {
     return { imei, cookie, userAgent: ZALO_PC_UA };
   } catch (err) {
     return logFail(`lỗi ở bước "${step}"`, err);
+  }
+}
+
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+
+/** taskkill Zalo.exe (có /T thì kèm tiến trình con); không có tiến trình nào thì lỗi bị bỏ qua. */
+function taskkillZalo(flags: string[]): void {
+  try {
+    execFileSync('taskkill', [...flags, '/IM', 'Zalo.exe'], { stdio: 'ignore' });
+  } catch { /* không có tiến trình nào để đóng */ }
+}
+
+/** Đường dẫn Zalo.exe lấy từ tiến trình đang chạy; không có thì dùng vị trí cài mặc định. */
+function zaloPcExePath(): string {
+  try {
+    const running = execFileSync(
+      'powershell',
+      ['-NoProfile', '-NonInteractive', '-Command', '(Get-Process -Name Zalo -ErrorAction SilentlyContinue | Select-Object -First 1).Path'],
+      { encoding: 'utf8' },
+    ).trim();
+    if (running) return running;
+  } catch { /* không đọc được tiến trình: dùng đường dẫn mặc định */ }
+  return join(process.env.LOCALAPPDATA ?? '', 'Programs', 'Zalo', 'Zalo.exe');
+}
+
+/**
+ * Đóng hẳn Zalo PC, đọc phiên khi file đã nhả khoá, rồi mở lại Zalo PC. Không cần quyền Administrator.
+ * Chỉ gọi khi operator gõ `/loginlocal force`: Zalo PC có thể mất nháp tin nhắn chưa gửi.
+ */
+export async function forceRestartZaloPc(): Promise<LocalZaloSession | null> {
+  if (process.platform !== 'win32') return null;
+  const exe = zaloPcExePath();
+  taskkillZalo([]); // đóng êm trước, cho Zalo cơ hội tự lưu
+  await sleep(3_000);
+  taskkillZalo(['/F', '/T']); // còn sót thì ép đóng cả cây tiến trình
+  await sleep(2_000);
+  try {
+    return await loadLocalZaloSession();
+  } finally {
+    if (existsSync(exe)) {
+      const child = spawn(exe, [], { detached: true, stdio: 'ignore' });
+      child.on('error', (err) => console.warn(`[Zalo PC] không mở lại được Zalo: ${err.message}`));
+      child.unref();
+    } else {
+      console.warn(`[Zalo PC] không thấy ${exe}, hãy mở Zalo PC thủ công`);
+    }
   }
 }
