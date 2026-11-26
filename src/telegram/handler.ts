@@ -790,6 +790,7 @@ export function setupTelegramHandler(
       } catch {
         accountLine = '\n👤 Zalo: đã kết nối 🟢';
       }
+      accountLine += `\n🆔 ID: <code>${escapeHtml(currentApi.getOwnId())}</code>`;
     }
     await ctx.telegram.sendMessage(
       config.telegram.groupId,
