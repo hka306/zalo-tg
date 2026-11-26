@@ -45,7 +45,9 @@ import { replayHistoryMessages, requestGroupHistory } from '../zalo/handler.js';
 import { tgBot } from './bot.js';
 import { config } from '../config.js';
 import { downloadToTemp, cleanTemp, convertStickerToPng, convertTgsToGif, convertToM4a, extractVideoThumbnail, convertWebmToGif } from '../utils/media.js';
-import { cancelActiveQRLogin, triggerQRLogin } from '../zalo/client.js';
+import { cancelActiveQRLogin, triggerQRLogin, getZaloApi, resetZaloApi } from '../zalo/client.js';
+import { loadLocalZaloSession } from '../zalo/localSession.js';
+import { writePrivateJsonFileSync } from '../utils/privateFile.js';
 import { cancelActiveAppLogin, triggerAppLogin } from '../zalo/loginApp.js';
 import { loadAppSession, invalidateAppSession, appGetReceivedFriendRequests, appGetSentFriendRequests, appGetGroupInfo, appGetGroupMembersInfo } from '../zalo/appApi.js';
 import { resetMemberCacheLoaded } from '../zalo/handler.js';
@@ -513,6 +515,37 @@ export function setupTelegramHandler(
         if (activeAppLoginSession === session) activeAppLoginSession = null;
       }
     })();
+  });
+
+  // /loginlocal — đăng nhập bằng phiên Zalo PC đang đăng nhập trên máy (Windows), không cần QR
+  tgBot.command('loginlocal', async (ctx) => {
+    const isPrivate   = ctx.chat.type === 'private';
+    const isFromGroup = ctx.chat.id === config.telegram.groupId;
+    if (!isPrivate && !isFromGroup) return;
+    if (!await requireTelegramOperator(ctx, 'đăng nhập lại Zalo')) return;
+    const threadId = isFromGroup ? ctx.message.message_thread_id : undefined;
+    const msgOpts  = threadId ? { message_thread_id: threadId } : {};
+
+    await ctx.reply('🔄 Đang lấy phiên Zalo PC trên máy...', msgOpts).catch(() => undefined);
+    try {
+      const session = await loadLocalZaloSession();
+      if (!session) {
+        await ctx.reply(
+          '❌ Không tìm thấy phiên Zalo PC trên máy (chỉ hỗ trợ Windows, cùng user Windows, và Zalo PC đang đăng nhập).',
+          msgOpts,
+        );
+        return;
+      }
+      writePrivateJsonFileSync(config.zalo.credentialsPath, session);
+      resetZaloApi();
+      const newApi = await getZaloApi();
+      currentApi = newApi;
+      resetMemberCacheLoaded();
+      void onZaloLogin(newApi).catch((e: unknown) => console.error('[/loginlocal] onZaloLogin error:', e));
+      await ctx.reply('🎉 Đăng nhập Zalo bằng phiên trên máy thành công!', msgOpts);
+    } catch (err) {
+      await ctx.reply(`❌ Đăng nhập bằng phiên Zalo PC thất bại: ${String(err)}`, msgOpts).catch(() => undefined);
+    }
   });
 
   tgBot.command('restart', async (ctx) => {

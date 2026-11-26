@@ -8,6 +8,8 @@ import { startUpdateChecker } from './updater.js';
 import { store, userCache } from './store.js';
 import { registerShutdownHandler, requestShutdown } from './lifecycle.js';
 import { terminal } from './utils/terminal.js';
+import { loadLocalZaloSession } from './zalo/localSession.js';
+import { writePrivateJsonFileSync } from './utils/privateFile.js';
 
 // ── Global safety net — prevent unhandled rejections from crashing ────────────
 process.on('unhandledRejection', (reason) => {
@@ -26,6 +28,20 @@ let _activeZaloApi: Awaited<ReturnType<typeof getZaloApi>> | null = null;
 let _bridgeReadyAnnounced = false;
 
 // ── Boot Zalo (also used when /login swaps in a fresh API) ───────────────────
+
+/**
+ * Nếu máy có phiên Zalo PC đang đăng nhập, ghi đè credentials.json bằng phiên đó
+ * (imei + cookie sống) rồi reset cache API. Chỉ chạy trên Windows; trả false nếu
+ * không lấy được để caller dùng tiếp credentials.json sẵn có (nếu còn).
+ */
+async function refreshCredentialsFromLocalSession(): Promise<boolean> {
+  const session = await loadLocalZaloSession();
+  if (!session) return false;
+  writePrivateJsonFileSync(config.zalo.credentialsPath, session);
+  resetZaloApi();
+  terminal.status('zalo login', 'dùng phiên Zalo PC trên máy', 'info');
+  return true;
+}
 
 async function pruneLeftGroupTopics(api: Awaited<ReturnType<typeof getZaloApi>>): Promise<void> {
   try {
@@ -83,6 +99,7 @@ async function startZalo(
         if (_reconnectInProgress) return;
         _reconnectInProgress = true;
         try {
+          await refreshCredentialsFromLocalSession();
           resetZaloApi();
           const newApi = await getZaloApi();
           _setZaloApi?.(newApi);
@@ -93,7 +110,7 @@ async function startZalo(
           console.error('[Boot] Zalo reconnect failed:', err);
           tgBot.telegram.sendMessage(
             config.telegram.groupId,
-            '⚠️ Kết nối lại Zalo thất bại. Hãy dùng <b>/login</b> để đăng nhập lại.',
+            '⚠️ Không có đăng nhập Zalo.',
             { parse_mode: 'HTML' },
           ).catch(() => undefined);
         } finally {
@@ -157,6 +174,7 @@ async function main(): Promise<void> {
     { command: 'login',          description: 'Đăng nhập Zalo qua QR code' },
     { command: 'loginweb',       description: 'Đăng nhập Zalo QR (giống /login)' },
     { command: 'loginapp',       description: 'Đăng nhập Zalo qua PC App API' },
+    { command: 'loginlocal',     description: 'Đăng nhập bằng phiên Zalo PC trên máy (Windows)' },
     { command: 'search',         description: 'Tìm bạn bè / nhóm Zalo để tạo topic' },
     { command: 'group_info',     description: 'Xem thông tin & thành viên nhóm Zalo hiện tại' },
     { command: 'group_infoall',  description: 'Xem toàn bộ thành viên nhóm Zalo hiện tại' },
@@ -204,23 +222,25 @@ async function main(): Promise<void> {
       .catch((err: unknown) => console.warn('[Boot] Failed to sync Telegram commands:', err));
 
     // ── Attempt Zalo login in background ────────────────────────────────────
-    // If credentials.json exists → connects automatically and updates currentApi.
-    // If not → notifies the user to run /login.
-    getZaloApi()
-      .then(async (api) => {
+    // Ưu tiên phiên Zalo PC đang đăng nhập trên máy (Windows); nếu không có thì
+    // dùng credentials.json sẵn có. Không fallback QR — lỗi thì báo Telegram.
+    void (async () => {
+      try {
+        await refreshCredentialsFromLocalSession();
+        const api = await getZaloApi();
         setZaloApi(api);   // ← inject into Telegram handler so TG→Zalo works
         await startZalo(api);
-      })
-      .catch((err: unknown) => {
+      } catch (err) {
         console.warn('[Boot] Zalo auto-login failed:', err);
         tgBot.telegram
           .sendMessage(
             config.telegram.groupId,
-            '⚠️ Chưa đăng nhập Zalo. Gửi <b>/login</b> để đăng nhập.',
+            '⚠️ Không có đăng nhập Zalo.',
             { parse_mode: 'HTML' },
           )
           .catch(() => undefined);
-      });
+      }
+    })();
   }).catch((err: unknown) => {
     console.error('[Boot] Telegram polling stopped:', err);
     // Do not leave a half-alive Zalo-only bridge. A supervisor/run.sh can
