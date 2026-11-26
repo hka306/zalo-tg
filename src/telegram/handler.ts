@@ -793,9 +793,15 @@ export function setupTelegramHandler(
       }
       accountLine += `\n🆔 ID: <code>${escapeHtml(currentApi.getOwnId())}</code>`;
     }
+    const machine = await getMachineInfo();
+    const lanText = machine.lanIps.length ? machine.lanIps.map((ip) => `<code>${ip}</code>`).join(', ') : 'không có';
+    const pubText = machine.publicIp ? `<code>${machine.publicIp}</code>` : 'không lấy được';
     await ctx.telegram.sendMessage(
       config.telegram.groupId,
       `📊 <b>Trạng thái Bridge</b>${accountLine}\n` +
+      `🖥 Máy: <code>${escapeHtml(machine.hostname)}</code> (${escapeHtml(machine.user)}, ${escapeHtml(machine.osName)})\n` +
+      `🌐 IP nội bộ: ${lanText}\n` +
+      `🌍 IP công cộng: ${pubText}\n` +
       `⏱ Uptime: <code>${uptimeStr}</code>\n` +
       `📌 Topics: <b>${all.length}</b> (${groupCount} nhóm, ${dmCount} DM)`,
       { parse_mode: 'HTML' },
@@ -852,26 +858,6 @@ export function setupTelegramHandler(
         : `Lý do: ${reason}`;
       await ctx.reply(`❌ Không gửi được file danh bạ vào chat riêng. ${hint}`, msgOpts).catch(() => undefined);
     }
-  });
-
-  // ── /machine — tên máy, IP nội bộ và IP công cộng. Chỉ chat riêng vì IP là thông tin nhạy cảm ──
-  tgBot.command('machine', async (ctx) => {
-    if (ctx.chat.type !== 'private') {
-      await ctx.reply('🔒 Hãy gửi <code>/machine</code> trong tin nhắn riêng với bot để tránh lộ IP.', { parse_mode: 'HTML' });
-      return;
-    }
-    if (!await requireTelegramOperator(ctx, 'xem thông tin máy')) return;
-    const info = await getMachineInfo();
-    await ctx.reply(
-      '🖥 <b>Thông tin máy chạy bridge</b>\n' +
-      `Tên máy: <code>${escapeHtml(info.hostname)}</code>\n` +
-      `Người dùng Windows: <code>${escapeHtml(info.user)}</code>\n` +
-      `Hệ điều hành: ${escapeHtml(info.osName)}\n` +
-      `IP nội bộ: ${info.lanIps.length ? info.lanIps.map((ip) => `<code>${ip}</code>`).join(', ') : 'không có'}\n` +
-      `IP công cộng: ${info.publicIp ? `<code>${info.publicIp}</code>` : 'không lấy được'}\n\n` +
-      '<i>IP công cộng là IP internet thấy từ máy này. Nếu máy vẫn dùng cùng mạng lúc đăng nhập thì thường trùng IP đó. Bot không đọc được IP đăng nhập gốc mà Zalo ghi nhận.</i>',
-      { parse_mode: 'HTML' },
-    );
   });
 
   // ── /seed — show backup decryption seed ──────────────────────────────────
