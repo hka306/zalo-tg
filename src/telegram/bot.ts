@@ -8,22 +8,12 @@ const agent = new https.Agent({ family: 4 });
 const localAgent = new http.Agent({ family: 4 });
 
 const BOT_COMMANDS = [
-  { command: 'login',          description: 'Đăng nhập Zalo bằng QR (Web API)' },
-  { command: 'loginweb',       description: 'Đăng nhập Zalo bằng QR (Web API, giống /login)' },
-  { command: 'loginapp',       description: 'Đăng nhập Zalo bằng QR (PC App API)' },
   { command: 'loginlocal',     description: 'Đăng nhập bằng phiên Zalo PC trên máy (Windows)' },
   { command: 'search',         description: 'Tìm tên, nhóm hoặc số điện thoại' },
   { command: 'group_info',     description: 'Xem thông tin & thành viên nhóm Zalo hiện tại' },
   { command: 'group_infoall',  description: 'Xem toàn bộ thành viên nhóm Zalo hiện tại' },
-  { command: 'recall',         description: 'Thu hồi tin nhắn đã gửi sang Zalo' },
   { command: 'topic',          description: 'Quản lý topic: list | info | delete' },
   { command: 'history',        description: 'Nạp lịch sử chat nhóm vào topic hiện tại' },
-  { command: 'autoreply',      description: 'Tự trả lời DM khi offline: on | off | status' },
-  { command: 'addgroup',       description: 'Tạo nhóm Zalo mới từ topic hiện tại' },
-  { command: 'addfriend',      description: 'Gửi lời mời kết bạn Zalo' },
-  { command: 'friendrequests', description: 'Xem & duyệt lời mời kết bạn đang chờ' },
-  { command: 'joingroup',      description: 'Tham gia nhóm Zalo qua link mời' },
-  { command: 'leavegroup',     description: 'Rời nhóm Zalo của topic hiện tại' },
   { command: 'status',         description: 'Xem trạng thái kết nối & thống kê bridge' },
   { command: 'restart',        description: 'Khởi động lại bridge (chỉ admin)' },
   { command: 'setup',          description: 'Cấu hình biến env qua wizard (chỉ admin)' },
