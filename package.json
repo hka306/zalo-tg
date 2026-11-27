@@ -11,6 +11,7 @@
     "start": "node --disable-warning=DEP0205 dist/index.js",
     "agent:export": "node --disable-warning=DEP0205 dist/agent/exportSession.js",
     "agent:import": "node --disable-warning=DEP0205 dist/agent/importSession.js",
+    "agent:gui": "node --disable-warning=DEP0205 dist/agent/importGui.js",
     "test": "NODE_OPTIONS=--disable-warning=DEP0205 tsx --test tests/*.test.ts",
     "check": "npm run build && npm test",
     "test:coverage": "node --disable-warning=DEP0205 --import tsx --test --experimental-test-coverage tests/*.test.ts",
