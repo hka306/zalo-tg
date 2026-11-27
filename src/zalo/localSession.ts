@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { execFileSync, spawn } from 'node:child_process';
+import { builtin, isSeaExe } from '../utils/sea.js';
 
 export interface LocalZaloSession {
   imei: string;
@@ -111,12 +112,35 @@ export function decryptCookieValue(enc: Buffer, key: Buffer): string {
   return dpapiUnprotect(enc.toString('base64')).toString('utf8'); // cookie DPAPI kiểu cũ
 }
 
+type CookieRow = { host: string; name: string; enc: Buffer };
+type SqliteDb = {
+  prepare(sql: string): { all(): Array<Record<string, unknown>> };
+  close(): void;
+};
+
+/** Đọc Cookies DB trong cùng tiến trình. Dùng khi chạy .exe, vì lúc đó không có node con để gọi. */
+export function readCookieRowsSqlite(dbPath: string): CookieRow[] {
+  const sqlite = builtin<{ DatabaseSync: new (path: string, opts: { readOnly: boolean }) => SqliteDb }>('node:sqlite');
+  if (!sqlite) throw new Error('Node trong .exe không có node:sqlite');
+  const db = new sqlite.DatabaseSync(dbPath, { readOnly: true });
+  try {
+    return db.prepare('SELECT host_key,name,hex(encrypted_value) v FROM cookies').all().map((r) => ({
+      host: String(r.host_key),
+      name: String(r.name),
+      enc: Buffer.from(String(r.v ?? ''), 'hex'),
+    }));
+  } finally {
+    db.close();
+  }
+}
+
 /**
  * Đọc (host, name, encrypted_value) từ Cookies DB. Dùng tiến trình con
  * `node --experimental-sqlite` để không phải thêm cờ vào lệnh chạy chính của
  * bridge (và chạy được cả khi Node bản cũ hơn chưa bật mặc định).
  */
-function readCookieRows(dbPath: string): Array<{ host: string; name: string; enc: Buffer }> {
+function readCookieRows(dbPath: string): CookieRow[] {
+  if (isSeaExe()) return readCookieRowsSqlite(dbPath);
   const inline =
     "const {DatabaseSync}=require('node:sqlite');" +
     'const db=new DatabaseSync(process.argv[1],{readOnly:true});' +

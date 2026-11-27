@@ -26,7 +26,7 @@ async function fetchAccountName(api: ZaloAPI): Promise<string | null> {
 
 // Chạy trên máy có Zalo PC: lấy phiên đang đăng nhập, gửi tóm tắt (cùng các trường của /status)
 // và file phiên đã mã hoá về chat riêng với bot.
-async function main(): Promise<void> {
+export async function runExport(): Promise<void> {
   const passphrase = passphraseFromEnv();
   const chatId = process.env.AGENT_CHAT_ID?.trim() ?? '';
   if (!/^-?\d+$/.test(chatId)) throw new Error('Đặt AGENT_CHAT_ID là Telegram user id của bạn trong .env.');
@@ -77,10 +77,3 @@ async function main(): Promise<void> {
   console.log('[agent] Đã gửi tóm tắt và file phiên đã mã hoá về chat riêng.');
 }
 
-main().then(
-  () => process.exit(0),
-  (err: unknown) => {
-    console.error(`[agent] ${err instanceof Error ? err.message : String(err)}`);
-    process.exit(1);
-  },
-);

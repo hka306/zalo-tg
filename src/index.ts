@@ -12,6 +12,9 @@ import { forceRestartZaloPc, loadBrowserZaloSession, loadLocalZaloSession } from
 import { writePrivateJsonFileSync } from './utils/privateFile.js';
 import { isTransientNetworkError } from './utils/zaloRetry.js';
 
+// Bridge cần TG_GROUP_ID ngay khi khởi động. config.ts đọc biến này lười (để agent chạy không cần), nên kiểm tra ở đây.
+void config.telegram.groupId;
+
 // ── Global safety net — prevent unhandled rejections from crashing ────────────
 process.on('unhandledRejection', (reason) => {
   console.error('[Boot] Unhandled rejection (ignored):', reason);
