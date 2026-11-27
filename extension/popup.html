@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { width: 340px; font: 14px/1.5 system-ui, sans-serif; padding: 16px; color: #222; }
+h2 { font-size: 16px; margin-bottom: 12px; }
+.status { padding: 10px; border-radius: 6px; margin-bottom: 12px; font-size: 13px; display: none; }
+.status.error { display: block; background: #fee; color: #b00; border: 1px solid #fcc; }
+.status.success { display: block; background: #efe; color: #060; border: 1px solid #cec; }
+.status.info { display: block; background: #eef; color: #006; border: 1px solid #cce; }
+.field { margin-bottom: 10px; }
+.field label { display: block; font-size: 12px; color: #666; margin-bottom: 2px; }
+.field input { width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font: 13px monospace; }
+.actions { display: flex; gap: 8px; margin-top: 12px; }
+button { flex: 1; padding: 8px; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+#btnExport { background: #0068ff; color: #fff; }
+#btnExport:hover { background: #0050cc; }
+#btnExport:disabled { background: #aaa; cursor: default; }
+#btnCopy { background: #eee; color: #333; }
+#btnCopy:hover { background: #ddd; }
+#btnDownload { background: #eee; color: #333; }
+#btnDownload:hover { background: #ddd; }
+.note { margin-top: 12px; font-size: 11px; color: #888; }
+</style>
+</head>
+<body>
+<h2>Zalo Session Export</h2>
+<div id="status" class="status"></div>
+<div class="field">
+  <label>z_uuid (imei)</label>
+  <input id="imei" readonly placeholder="Bấm Xuất để lấy...">
+</div>
+<div class="field">
+  <label>zpw_sek</label>
+  <input id="zpwSek" readonly placeholder="Bấm Xuất để lấy...">
+</div>
+<div class="actions">
+  <button id="btnExport">Xuất session</button>
+  <button id="btnCopy" disabled>Copy .env</button>
+  <button id="btnDownload" disabled>Tải file</button>
+</div>
+<p class="note">Extension chỉ đọc cookie và localStorage từ chat.zalo.me. Không gửi dữ liệu ra ngoài.</p>
+<script src="popup.js"></script>
+</body>
+</html>
