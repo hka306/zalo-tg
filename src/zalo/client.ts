@@ -27,6 +27,12 @@ const ZALO_OPTIONS = {
   },
 } as const;
 
+/** Đăng nhập bằng một phiên cụ thể, không ghi file và không đụng singleton. Dùng cho agent. */
+export async function loginWithSession(session: { imei: string; cookie: unknown; userAgent: string }): Promise<ZaloAPI> {
+  const zalo = new Zalo(ZALO_OPTIONS);
+  return (await zalo.login(session as Parameters<typeof zalo.login>[0])) as ZaloAPI;
+}
+
 /** Clear the cached API instance so the next `getZaloApi()` call re-authenticates. */
 export function resetZaloApi(): void {
   _api = null;
