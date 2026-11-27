@@ -8,9 +8,12 @@ permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  vps:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: vps
     strategy:
       matrix:
         node-version: [20, 22]
@@ -23,12 +26,31 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: npm
+          cache-dependency-path: vps/package-lock.json
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version-file: vps/go.mod
           cache: true
+          cache-dependency-path: vps/go.sum
       - run: npm ci
       - run: go test ./...
       - run: npm run tui:build
       - run: npm run check
       - run: npm run security:audit
+
+  agent:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: agent
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: agent/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test

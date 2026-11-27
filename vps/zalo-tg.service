@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/zalo-tg
-EnvironmentFile=/root/zalo-tg/.env
+WorkingDirectory=/root/zalo-tg/vps
+EnvironmentFile=/root/zalo-tg/vps/.env
 Environment=ZALO_TG_RUNNER=1
 
 # Build first, then run compiled JS (tiết kiệm RAM hơn tsx)

@@ -1,0 +1,27 @@
+{
+  "name": "zalo-agent",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Lấy phiên Zalo PC trên máy Windows và gửi về chat riêng với bot Telegram",
+  "type": "module",
+  "scripts": {
+    "agent:export": "tsx src/agent/agentMain.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "axios": "^1.7.2",
+    "dotenv": "^16.4.5",
+    "image-size": "^2.0.2",
+    "telegraf": "^4.16.3",
+    "zca-js": "2.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.15.6",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=22.5"
+  }
+}
