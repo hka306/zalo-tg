@@ -128,7 +128,7 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 | `/group_infoall` | Xem đầy đủ thành viên nhóm (kể cả nhóm ẩn danh sách). |
 | `/topic` | Liệt kê, xem, xoá hoặc quản lý mapping topic. |
 | `/history` | Nạp lịch sử chat nhóm Zalo vào topic hiện tại. |
-| `/status` | Xem trạng thái bridge: uptime, số topic, Zalo. |
+| `/status` | Xem trạng thái bridge: uptime, số topic, Zalo, tên máy và IP (IP nội bộ, IP công cộng). Lệnh đăng vào group nên IP hiện cho cả group. |
 | `/admin` | Công cụ diagnostic / cache / tra mapping. |
 | `/setup` | Cấu hình biến `.env` qua wizard (chỉ admin). |
 | `/restart` | Khởi động lại bridge (chỉ admin). |

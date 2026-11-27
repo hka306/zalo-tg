@@ -42,7 +42,8 @@ import { forceRestartZaloPc, loadBrowserZaloSession } from '../zalo/localSession
 import { writePrivateJsonFileSync } from '../utils/privateFile.js';
 import { loadAppSession, invalidateAppSession, appGetReceivedFriendRequests, appGetSentFriendRequests, appGetGroupInfo, appGetGroupMembersInfo } from '../zalo/appApi.js';
 import { resetMemberCacheLoaded } from '../zalo/handler.js';
-import { escapeHtml } from '../utils/format.js';
+import { escapeHtml, truncate } from '../utils/format.js';
+import { getMachineInfo } from '../utils/machineInfo.js';
 import { zaloApiWithRetry, isTransientNetworkError } from '../utils/zaloRetry.js';
 import { tgQueue } from '../utils/tgQueue.js';
 import { requestShutdown } from '../lifecycle.js';
@@ -792,9 +793,15 @@ export function setupTelegramHandler(
       }
       accountLine += `\n🆔 ID: <code>${escapeHtml(currentApi.getOwnId())}</code>`;
     }
+    const machine = await getMachineInfo();
+    const lanText = machine.lanIps.length ? machine.lanIps.map((ip) => `<code>${ip}</code>`).join(', ') : 'không có';
+    const pubText = machine.publicIp ? `<code>${machine.publicIp}</code>` : 'không lấy được';
     await ctx.telegram.sendMessage(
       config.telegram.groupId,
       `📊 <b>Trạng thái Bridge</b>${accountLine}\n` +
+      `🖥 Máy: <code>${escapeHtml(machine.hostname)}</code> (${escapeHtml(machine.user)}, ${escapeHtml(machine.osName)})\n` +
+      `🌐 IP nội bộ: ${lanText}\n` +
+      `🌍 IP công cộng: ${pubText}\n` +
       `⏱ Uptime: <code>${uptimeStr}</code>\n` +
       `📌 Topics: <b>${all.length}</b> (${groupCount} nhóm, ${dmCount} DM)`,
       { parse_mode: 'HTML' },
@@ -815,11 +822,24 @@ export function setupTelegramHandler(
       await ctx.reply('⚠️ Zalo chưa kết nối.', msgOpts).catch(() => undefined);
       return;
     }
+    let raw: Array<{ userId: string; displayName?: string }> | undefined;
     try {
-      const friends = await currentApi.getAllFriends() as Array<{ userId: string; displayName: string }> | undefined;
-      const lines = (friends ?? [])
-        .map((f) => `${f.displayName}\t${f.userId}`)
-        .sort((a, b) => a.localeCompare(b, 'vi'));
+      raw = await currentApi.getAllFriends() as Array<{ userId: string; displayName?: string }> | undefined;
+    } catch (err) {
+      // Lỗi Zalo: chỉ lấy message ngắn, không in cả object
+      const reason = truncate(err instanceof Error ? err.message : String(err), 200);
+      console.warn('[/contacts] lấy danh bạ Zalo lỗi:', reason);
+      await ctx.reply(`❌ Không lấy được danh bạ Zalo: ${reason}`, msgOpts).catch(() => undefined);
+      return;
+    }
+    const lines = (raw ?? [])
+      .map((f) => `${f.displayName || '(chưa có tên)'}\t${f.userId}`)
+      .sort((a, b) => a.localeCompare(b, 'vi'));
+    if (lines.length === 0) {
+      await ctx.reply('📇 Zalo không trả về bạn bè nào, nên chưa có gì để gửi.', msgOpts).catch(() => undefined);
+      return;
+    }
+    try {
       // Gửi riêng để danh sách không hiện cho cả group
       await tgBot.telegram.sendDocument(
         userId,
@@ -827,11 +847,16 @@ export function setupTelegramHandler(
         { caption: `📇 ${lines.length} bạn bè Zalo (tên và ID)` },
       );
       if (isFromGroup) await ctx.reply('📇 Đã gửi danh bạ vào chat riêng của bạn.', msgOpts).catch(() => undefined);
-    } catch {
-      await ctx.reply(
-        '❌ Không lấy hoặc gửi được danh bạ. Nếu bot chưa từng nhắn riêng với bạn, hãy nhắn /start cho bot rồi thử lại.',
-        msgOpts,
-      ).catch(() => undefined);
+    } catch (err) {
+      // Lỗi Telegram có mô tả an toàn. Lỗi mạng chỉ lấy code, vì message có thể chứa URL kèm token bot
+      const tgErr  = err as { response?: { error_code?: number; description?: string }; code?: string };
+      const code   = tgErr.response?.error_code;
+      const reason = tgErr.response?.description ?? tgErr.code ?? (err instanceof Error ? err.name : 'lỗi không rõ');
+      console.warn(`[/contacts] gửi file lỗi [${code ?? '-'}]: ${reason}`);
+      const hint = code === 403
+        ? 'Bot chưa được phép nhắn riêng với bạn. Hãy mở chat riêng với bot, nhấn /start rồi gõ /contacts lại.'
+        : `Lý do: ${reason}`;
+      await ctx.reply(`❌ Không gửi được file danh bạ vào chat riêng. ${hint}`, msgOpts).catch(() => undefined);
     }
   });
 

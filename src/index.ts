@@ -197,7 +197,7 @@ async function main(): Promise<void> {
     { command: 'topic',          description: 'Quản lý topic: list / info / delete' },
     { command: 'history',        description: 'Nạp lịch sử chat nhóm vào topic (dùng trong topic nhóm)' },
     { command: 'admin',          description: 'Admin panel: trạng thái, cache, tra mapping' },
-    { command: 'status',         description: 'Xem trạng thái bridge: uptime, số topic, Zalo' },
+    { command: 'status',         description: 'Xem trạng thái bridge, máy, IP, uptime và Zalo' },
     { command: 'restart',        description: 'Khởi động lại bridge (chỉ admin)' },
     { command: 'setup',          description: 'Cấu hình biến env qua wizard (chỉ admin)' },
     { command: 'update',         description: 'Kiểm tra bản cập nhật mới' },
