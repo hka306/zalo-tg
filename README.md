@@ -66,6 +66,16 @@ Phiên được lưu trong `credentials.json` (`{imei, cookie, userAgent}`, **po
 
 > Tính năng **xem đầy đủ thành viên nhóm ẩn danh sách** vẫn hoạt động: sau mỗi lần đăng nhập, bridge tự sinh `app-session.json` (khoá `zpw_enk` + cookie từ chính phiên đang đăng nhập) để gọi PC App API — không cần QR. Nếu không sẵn sàng, bridge tự fallback sang web API (nhóm ẩn có thể chỉ thấy một phần).
 
+## Chạy trên VPS bằng phiên từ máy Zalo
+
+Bridge trên VPS không đọc được Zalo PC. Vì vậy phiên được lấy trên máy Windows có Zalo PC rồi chuyển sang VPS:
+
+1. Trên máy Windows, đặt `AGENT_CHAT_ID` (Telegram user id của bạn; nhắn `/start` cho bot trước) và `AGENT_PASSPHRASE` (tối thiểu 12 ký tự) trong `.env`. Chạy `npm run build` rồi `npm run agent:export`.
+2. Bot gửi file `zalo-session.enc.json` vào chat riêng của bạn. File được mã hoá AES-256-GCM, không chứa cookie dạng thô.
+3. Trên VPS, đặt cùng `AGENT_PASSPHRASE`, copy file về rồi chạy `npm run agent:import -- zalo-session.enc.json`. Sau đó chạy bridge như bình thường.
+
+> Lưu ý: chỉ chạy một bridge cho một bot token tại một thời điểm, vì Telegram trả lỗi 409 khi hai bên cùng nhận update. File phiên bảo mật như mật khẩu Zalo. Chạy đồng thời trên hai máy có thể khiến Zalo đăng xuất một trong hai phiên.
+
 ## Cách sử dụng
 
 Luồng dùng từ đầu đến cuối:
@@ -142,6 +152,8 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 | `npm run dev` | Chạy app TypeScript bằng `tsx`. |
 | `npm run build` | Compile TypeScript vào `dist/`. |
 | `npm start` | Chạy app đã compile. |
+| `npm run agent:export` | Trên máy có Zalo PC: mã hoá phiên và gửi về chat riêng qua bot. |
+| `npm run agent:import -- <file>` | Trên VPS: giải mã file phiên thành `credentials.json`. |
 | `npm test` | Chạy toàn bộ test. |
 | `npm run check` | Build và chạy full test suite. |
 
