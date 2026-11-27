@@ -70,11 +70,11 @@ Phiên được lưu trong `credentials.json` (`{imei, cookie, userAgent}`, **po
 
 Bridge trên VPS không đọc được Zalo PC. Vì vậy phiên được lấy trên máy Windows có Zalo PC rồi chuyển sang VPS:
 
-1. Trên máy Windows, đặt `AGENT_CHAT_ID` (Telegram user id của bạn; nhắn `/start` cho bot trước) và `AGENT_PASSPHRASE` (tối thiểu 12 ký tự) trong `.env`. Chạy `npm run build` rồi `npm run agent:export`. Agent chạy tự động: nếu có tài khoản Zalo đăng nhập thì gửi tóm tắt và file phiên về bot, còn không thì báo lại trong chat riêng.
-2. Bot gửi file `zalo-session.enc.json` vào chat riêng của bạn. File được mã hoá AES-256-GCM, không chứa cookie dạng thô. Tải file này về và đưa lên VPS.
-3. Trên VPS, chạy `npm run agent:gui`. Mở SSH tunnel theo dòng hướng dẫn trong console (`ssh -L 3900:127.0.0.1:3900 <user>@<vps>`), rồi mở đường dẫn có `?t=` đã in ra. Điền bot token, group ID, `AGENT_PASSPHRASE`, chọn file rồi bấm lưu. Sau đó chạy `npm start` để bridge bắt đầu chạy.
+1. Trên máy Windows, đặt `AGENT_CHAT_ID` (Telegram user id của bạn; nhắn `/start` cho bot trước) trong `.env`. Chạy `npm run build` rồi `npm run agent:export`. Agent chạy tự động: nếu có tài khoản Zalo đăng nhập thì gửi tóm tắt và file phiên về bot, còn không thì báo lại trong chat riêng.
+2. Bot gửi file `zalo-session.json` vào chat riêng của bạn. File này chứa phiên đăng nhập Zalo dạng chưa mã hoá, nên xoá tin nhắn sau khi nạp xong. Tải file về máy đang mở trang setup ở bước 3.
+3. Trên VPS, chạy `npm run agent:gui`. Mở SSH tunnel theo dòng hướng dẫn trong console (`ssh -L 3900:127.0.0.1:3900 <user>@<vps>`), rồi mở đường dẫn có `?t=` đã in ra. Điền bot token, group ID, chọn file rồi bấm lưu. Sau đó chạy `npm start` để bridge bắt đầu chạy.
 
-> Lưu ý: chỉ chạy một bridge cho một bot token tại một thời điểm, vì Telegram trả lỗi 409 khi hai bên cùng nhận update. File phiên bảo mật như mật khẩu Zalo. Chạy đồng thời trên hai máy có thể khiến Zalo đăng xuất một trong hai phiên.
+> Lưu ý: chỉ chạy một bridge cho một bot token tại một thời điểm, vì Telegram trả lỗi 409 khi hai bên cùng nhận update. File phiên có quyền đăng nhập Zalo, giữ kín như mật khẩu. Chạy đồng thời trên hai máy có thể khiến Zalo đăng xuất một trong hai phiên.
 
 ## Cách sử dụng
 
@@ -152,7 +152,7 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 | `npm run dev` | Chạy app TypeScript bằng `tsx`. |
 | `npm run build` | Compile TypeScript vào `dist/`. |
 | `npm start` | Chạy app đã compile. |
-| `npm run agent:export` | Trên máy có Zalo PC: mã hoá phiên và gửi về chat riêng qua bot. |
+| `npm run agent:export` | Trên máy có Zalo PC: lấy phiên và gửi về chat riêng qua bot. |
 | `npm run agent:import -- <file>` | Trên VPS: giải mã file phiên thành `credentials.json`. |
 | `npm run agent:gui` | Trên VPS: trang web cục bộ (`127.0.0.1:3900`) để điền bot token, group ID và nạp file phiên. |
 | `npm test` | Chạy toàn bộ test. |

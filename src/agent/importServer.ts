@@ -2,7 +2,6 @@ import { existsSync, readFileSync } from 'node:fs';
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { writePrivateJsonFileSync, writePrivateTextFileSync } from '../utils/privateFile.js';
-import { decryptSession } from './sessionBundle.js';
 
 export interface SessionJson { imei: string; cookie: unknown; userAgent: string }
 
@@ -14,18 +13,12 @@ const TEXT_TYPE = 'text/plain; charset=utf-8';
 const HTML_TYPE = 'text/html; charset=utf-8';
 const BAD_SESSION = 'File không phải phiên Zalo hợp lệ.';
 
-// Giải mã file phiên từ agent và kiểm tra đủ trường bridge cần, trước khi ghi ra đĩa.
-export function openSessionEnvelope(envelope: string, passphrase: string): SessionJson {
-  let plain: string;
-  try {
-    plain = decryptSession(envelope, passphrase);
-  } catch {
-    throw new Error('Không mở được file: sai AGENT_PASSPHRASE hoặc file đã bị sửa.');
-  }
+// Đọc file phiên từ agent và kiểm tra đủ trường bridge cần, trước khi ghi ra đĩa.
+export function parseSession(text: string): SessionJson {
   // Không đưa lỗi JSON.parse ra ngoài: nó có thể chứa một đoạn nội dung phiên.
   let session: Partial<SessionJson> | null;
   try {
-    session = JSON.parse(plain) as Partial<SessionJson> | null;
+    session = JSON.parse(text) as Partial<SessionJson> | null;
   } catch {
     throw new Error(BAD_SESSION);
   }
@@ -90,13 +83,12 @@ function receiveImport(req: http.IncomingMessage, res: http.ServerResponse, opts
   req.on('error', () => res.destroy());
   req.on('end', () => {
     try {
-      const { tgToken, groupId, passphrase, envelope } = parseBody(Buffer.concat(chunks).toString('utf8'));
+      const { tgToken, groupId, session: raw } = parseBody(Buffer.concat(chunks).toString('utf8'));
       if (typeof tgToken !== 'string' || !/^\d+:[\w-]+$/.test(tgToken)) throw new Error('Bot token không đúng định dạng.');
       if (typeof groupId !== 'string' || !/^-[1-9]\d*$/.test(groupId)) throw new Error('Group ID phải là số âm, ví dụ -1001234567890.');
-      if (typeof passphrase !== 'string' || passphrase.trim().length < 12) throw new Error('AGENT_PASSPHRASE tối thiểu 12 ký tự.');
-      if (typeof envelope !== 'string') throw new Error('Thiếu file phiên.');
+      if (typeof raw !== 'string') throw new Error('Thiếu file phiên.');
 
-      const session = openSessionEnvelope(envelope, passphrase.trim());
+      const session = parseSession(raw);
       writePrivateJsonFileSync(opts.credentialsPath, session);
       const current = existsSync(opts.envPath) ? readFileSync(opts.envPath, 'utf8') : '';
       writePrivateTextFileSync(opts.envPath, setEnvValues(current, { TG_TOKEN: tgToken, TG_GROUP_ID: groupId }));
@@ -132,10 +124,9 @@ button{margin-top:20px;padding:10px 16px;font-size:15px;cursor:pointer}
 .ok{color:#0a7d33}.err{color:#b00020}
 </style></head><body>
 <h2>Nạp phiên Zalo cho bridge</h2>
-<p>Điền bot token, group ID, AGENT_PASSPHRASE và chọn file <code>zalo-session.enc.json</code> do agent gửi về. Sau khi lưu, chạy <code>npm start</code> để bắt đầu.</p>
+<p>Điền bot token, group ID và chọn file <code>zalo-session.json</code> do agent gửi về. Sau khi lưu, chạy <code>npm start</code> để bắt đầu.</p>
 <label>Bot token (TG_TOKEN)<input id="tok" autocomplete="off"></label>
 <label>Group ID (TG_GROUP_ID)<input id="grp" placeholder="-100..." autocomplete="off"></label>
-<label>AGENT_PASSPHRASE<input id="pass" type="password" autocomplete="off"></label>
 <label>File phiên từ agent<input id="file" type="file" accept=".json,application/json"></label>
 <button id="btn">Lưu cấu hình và phiên</button>
 <div id="msg"></div>
@@ -149,8 +140,7 @@ document.getElementById('btn').onclick = async () => {
   const body = {
     tgToken: document.getElementById('tok').value.trim(),
     groupId: document.getElementById('grp').value.trim(),
-    passphrase: document.getElementById('pass').value,
-    envelope: await file.text(),
+    session: await file.text(),
   };
   const res = await fetch('/import?t=' + encodeURIComponent(t), {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),

@@ -3,7 +3,6 @@ import { loginWithSession } from '../zalo/client.js';
 import { loadBrowserZaloSession, loadLocalZaloSession } from '../zalo/localSession.js';
 import { escapeHtml } from '../utils/format.js';
 import { getMachineInfo } from '../utils/machineInfo.js';
-import { encryptSession, passphraseFromEnv } from './sessionBundle.js';
 import type { ZaloAPI } from '../zalo/types.js';
 
 // Báo về chat riêng để bạn biết agent đã chạy. Lỗi gửi chỉ in ra console.
@@ -25,9 +24,8 @@ async function fetchAccountName(api: ZaloAPI): Promise<string | null> {
 }
 
 // Chạy trên máy có Zalo PC: lấy phiên đang đăng nhập, gửi tóm tắt (cùng các trường của /status)
-// và file phiên đã mã hoá về chat riêng với bot.
+// và file phiên về chat riêng với bot.
 export async function runExport(): Promise<void> {
-  const passphrase = passphraseFromEnv();
   const chatId = process.env.AGENT_CHAT_ID?.trim() ?? '';
   if (!/^-?\d+$/.test(chatId)) throw new Error('Đặt AGENT_CHAT_ID là Telegram user id của bạn trong .env.');
   const session = (await loadLocalZaloSession()) ?? loadBrowserZaloSession();
@@ -58,13 +56,13 @@ export async function runExport(): Promise<void> {
     `🌐 IP nội bộ: ${lanText}`,
     `🌍 IP công cộng: ${pubText}`,
   ].join('\n');
-  const envelope = encryptSession(JSON.stringify(session), passphrase);
+  const body = Buffer.from(JSON.stringify(session), 'utf8');
   try {
     await tgBot.telegram.sendMessage(chatId, summary, { parse_mode: 'HTML' });
     await tgBot.telegram.sendDocument(
       chatId,
-      { source: Buffer.from(envelope, 'utf8'), filename: 'zalo-session.enc.json' },
-      { caption: '🔐 Phiên Zalo đã mã hoá. Cần AGENT_PASSPHRASE để mở.' },
+      { source: body, filename: 'zalo-session.json' },
+      { caption: '⚠️ Phiên Zalo đang đăng nhập, chưa mã hoá. Ai có file này dùng được tài khoản. Xoá tin này sau khi nạp xong.' },
     );
   } catch (err) {
     // Không in err.message: lỗi mạng có thể chứa URL kèm token bot
