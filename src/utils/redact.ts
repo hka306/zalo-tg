@@ -1,5 +1,6 @@
 // Telegraf ghi URL có token (/bot<id>:<secret>/<method>) vào message của lỗi mạng.
-const BOT_TOKEN_IN_URL = /bot\d+:[\w-]+/g;
+// Secret kết thúc ở dấu "/" của đường dẫn, nên không giới hạn ký tự.
+const BOT_TOKEN_IN_URL = /bot\d+:[^/\s]+/g;
 
 export function redactBotToken(text: string): string {
   return text.replace(BOT_TOKEN_IN_URL, 'bot<redacted>');
