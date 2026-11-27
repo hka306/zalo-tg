@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Zalo Session Export",
+  "version": "1.0.0",
+  "description": "Xuất phiên đăng nhập Zalo Web (z_uuid + zpw_sek) để dùng với zalo-tg bridge.",
+  "permissions": ["cookies", "scripting", "activeTab"],
+  "host_permissions": ["*://*.zalo.me/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icon.png"
+  },
+  "icons": {
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
