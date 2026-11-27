@@ -54,7 +54,10 @@ function excludeThreads(): Record<string, true> {
 export const config = {
   telegram: {
     token:       requireEnv('TG_TOKEN'),
-    groupId:     requireTelegramGroupId(),
+    // Đọc khi dùng, để agent (chỉ gửi tin riêng) chạy được mà không cần TG_GROUP_ID.
+    get groupId(): number {
+      return requireTelegramGroupId();
+    },
   },
   zalo: {
     credentialsPath: resolvePath(process.env.ZALO_CREDENTIALS_PATH, 'credentials.json'),

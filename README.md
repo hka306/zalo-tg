@@ -66,6 +66,16 @@ Phiên được lưu trong `credentials.json` (`{imei, cookie, userAgent}`, **po
 
 > Tính năng **xem đầy đủ thành viên nhóm ẩn danh sách** vẫn hoạt động: sau mỗi lần đăng nhập, bridge tự sinh `app-session.json` (khoá `zpw_enk` + cookie từ chính phiên đang đăng nhập) để gọi PC App API — không cần QR. Nếu không sẵn sàng, bridge tự fallback sang web API (nhóm ẩn có thể chỉ thấy một phần).
 
+## Chạy trên VPS bằng phiên từ máy Zalo
+
+Bridge trên VPS không đọc được Zalo PC. Vì vậy phiên được lấy trên máy Windows có Zalo PC rồi chuyển sang VPS:
+
+1. Trên máy Windows có Zalo PC, đặt `TG_TOKEN` (token bot) và `AGENT_CHAT_ID` (Telegram user id của bạn; nhắn `/start` cho bot trước) trong `.env`. Chạy `npm run build` rồi `npm run agent:export`. Lệnh chạy một lần rồi thoát, không tự chạy khi bật máy. Nếu có tài khoản Zalo đăng nhập, lệnh gửi tóm tắt và file phiên về bot. Nếu không, lệnh chỉ báo lại trong chat riêng.
+2. Bot gửi file `zalo-session.json` vào chat riêng của bạn. File này chứa phiên đăng nhập Zalo dạng chưa mã hoá, nên xoá tin nhắn sau khi nạp xong. Tải file về máy đang mở trang setup ở bước 3.
+3. Trên VPS, chạy `npm run agent:gui`. Mở SSH tunnel theo dòng hướng dẫn trong console (`ssh -L 3900:127.0.0.1:3900 <user>@<vps>`), rồi mở đường dẫn có `?t=` đã in ra. Điền bot token, group ID, chọn file rồi bấm lưu. Sau đó chạy `npm start` để bridge bắt đầu chạy. Nếu muốn dùng dòng lệnh, chạy `npm run agent:import -- zalo-session.json`. Lệnh này chỉ ghi `credentials.json`, nên bạn tự điền `TG_TOKEN` và `TG_GROUP_ID` vào `.env`.
+
+> Lưu ý: chỉ chạy một bridge cho một bot token tại một thời điểm, vì Telegram trả lỗi 409 khi hai bên cùng nhận update. File phiên có quyền đăng nhập Zalo, giữ kín như mật khẩu. Chạy đồng thời trên hai máy có thể khiến Zalo đăng xuất một trong hai phiên.
+
 ## Cách sử dụng
 
 Luồng dùng từ đầu đến cuối:
@@ -106,6 +116,7 @@ Luồng dùng từ đầu đến cuối:
 | --- | --- | --- |
 | `TG_TOKEN` | bắt buộc | Telegram bot token từ @BotFather. |
 | `TG_GROUP_ID` | bắt buộc, ví dụ `-1001234567890` | ID Telegram supergroup/forum (số âm; bot là admin; bật Topics). |
+| `AGENT_CHAT_ID` | chỉ cho agent | Telegram user id nhận phiên khi chạy `npm run agent:export`. Bridge không đọc biến này. |
 | `DATA_DIR` | `./data` | Thư mục lưu topic map, message map, user cache, poll. |
 | `ZALO_CREDENTIALS_PATH` | `./credentials.json` | File phiên Zalo. Không commit. |
 | `ZALO_PC_DATA_DIR` | tự dò `%APPDATA%\ZaloData` | Nơi `/loginlocal` đọc dữ liệu Zalo PC (Windows). |
@@ -142,6 +153,9 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 | `npm run dev` | Chạy app TypeScript bằng `tsx`. |
 | `npm run build` | Compile TypeScript vào `dist/`. |
 | `npm start` | Chạy app đã compile. |
+| `npm run agent:export` | Trên máy có Zalo PC: lấy phiên và gửi về chat riêng qua bot. |
+| `npm run agent:import -- <file>` | Trên VPS: ghi file phiên thành `credentials.json`. |
+| `npm run agent:gui` | Trên VPS: trang web cục bộ (`127.0.0.1:3900`) để điền bot token, group ID và nạp file phiên. |
 | `npm test` | Chạy toàn bộ test. |
 | `npm run check` | Build và chạy full test suite. |
 
@@ -168,6 +182,7 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 | `src/zalo/localSession.ts` | Trích phiên Zalo PC đang đăng nhập trên máy (Windows), dùng cho `/loginlocal`. |
 | `src/zalo/handler.ts` | Nhận event từ Zalo listener và forward sang Telegram. |
 | `src/zalo/appApi.ts` | Gọi PC App API để lấy đầy đủ thành viên nhóm (kể cả nhóm ẩn). |
+| `src/agent/` | Agent trên máy có Zalo PC (`agent:export`), trang nạp phiên trên VPS (`agent:gui`) và `agent:import`. |
 | `src/store.ts` | Topic/message mapping, cache, media buffer, reaction/poll store. |
 | `src/utils/` | media, format, privateFile, terminal, tgQueue, zaloRetry… |
 | `src/lifecycle.ts`, `src/updater.ts` | Điều phối shutdown/restart; kiểm tra cập nhật. |
@@ -179,4 +194,4 @@ Xem [.env.example](.env.example) để có template đầy đủ (gồm các bi�
 - Chạy `npm run check` trước khi push.
 - Chạy local: nên **đóng app Zalo PC sau khi app đã có phiên** để tránh tranh chấp kết nối (app và Zalo PC là hai client cùng loại, có thể kick nhau). App đọc phiên từ đĩa nên không cần Zalo PC mở sẵn.
 - Nếu Zalo báo duplicate/kicked session: gõ `/loginlocal` trên máy có Zalo PC để nối lại.
-- `credentials.json` và `app-session.json` là dữ liệu nhạy cảm — không commit, giữ quyền chỉ chủ sở hữu đọc.
+- `credentials.json`, `app-session.json` và `zalo-session.json` là dữ liệu nhạy cảm — không commit, giữ quyền chỉ chủ sở hữu đọc. Xoá `zalo-session.json` sau khi nạp.
