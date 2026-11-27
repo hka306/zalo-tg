@@ -1,6 +1,7 @@
 import { Telegraf } from 'telegraf';
 import https from 'https';
 import { config } from '../config.js';
+import { redactErrorToken } from '../utils/redact.js';
 
 // Force IPv4 to avoid ETIMEDOUT on systems where IPv6 is blocked/unreachable
 const agent = new https.Agent({ family: 4 });
@@ -24,6 +25,18 @@ const BOT_COMMANDS = [
 export const tgBot = new Telegraf(config.telegram.token, {
   telegram: { agent },
 });
+
+// Lỗi mạng của Telegraf (FetchError) có URL chứa token. Che ở callApi để mọi log
+// và tin báo lỗi đều sạch; code lỗi vẫn giữ nguyên để logic retry hoạt động.
+const telegramClient = tgBot.telegram as unknown as { callApi: (...args: unknown[]) => Promise<unknown> };
+const rawCallApi = telegramClient.callApi.bind(tgBot.telegram);
+telegramClient.callApi = async (...args) => {
+  try {
+    return await rawCallApi(...args);
+  } catch (err) {
+    throw redactErrorToken(err);
+  }
+};
 
 // Keep polling alive when one update handler fails. Without an explicit catch,
 // Telegraf can reject launch() and leave the process half-alive: Zalo→Telegram
